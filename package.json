@@ -1,0 +1,74 @@
+{
+  "name": "experiment-harness",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite dev --port 3100",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/react": "^3.0.172",
+    "@libsql/client": "^0.17.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@octokit/rest": "^22.0.1",
+    "@openai/codex": "^0.125.0",
+    "@openai/codex-sdk": "^0.125.0",
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-devtools": "latest",
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-router-devtools": "latest",
+    "@tanstack/react-router-ssr-query": "latest",
+    "@tanstack/react-start": "latest",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/router-plugin": "^1.132.0",
+    "ai": "^6.0.170",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^0.577.0",
+    "next-themes": "^0.4.6",
+    "radix-ui": "^1.4.3",
+    "react": "^19.2.0",
+    "react-diff-viewer-continued": "^4.2.2",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.10.0",
+    "recharts": "^3.8.1",
+    "remark-gfm": "^4.0.1",
+    "simple-git": "^3.36.0",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.0.2",
+    "tailwindcss": "^4.1.18",
+    "tw-animate-css": "^1.3.6",
+    "yaml": "^2.8.3",
+    "zod": "^4.4.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.16",
+    "@tanstack/devtools-vite": "latest",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "drizzle-kit": "^0.31.10",
+    "jsdom": "^28.1.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild",
+      "lightningcss"
+    ]
+  }
+}

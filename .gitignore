@@ -1,0 +1,41 @@
+# Dependencies & build output
+node_modules
+dist
+dist-ssr
+.nitro
+.tanstack
+.wrangler
+.output
+.vinxi
+__unconfig*
+
+# Editor & local OS noise
+.DS_Store
+.idea
+*.swp
+
+# Local config & secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Runtime data: cloned repos, libsql DB (encrypted secrets, JWTs),
+# codex auth.json materialised from the user's ChatGPT login,
+# cocoindex daemon state, and per-experiment artifacts. NONE of this
+# should ever be committed.
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-*
+
+# Auth files (belt-and-braces — should already be inside data/)
+auth.json
+**/auth.json
+
+# Misc local-only generated state
+todos.json
+.cta.json
+.cursorrules
