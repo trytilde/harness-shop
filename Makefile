@@ -25,9 +25,23 @@ help:
 	@echo "  make clean          — remove node_modules, data/, .cocoindex_code"
 
 .PHONY: setup
-setup: install setup-ccc setup-rg
+setup: install setup-ccc setup-rg setup-env
 	@echo ""
 	@echo "Setup complete. Start the dev server with: make dev"
+	@echo "Then open http://localhost:3100 and walk through the gear icon → Settings."
+
+# Generate `.env.local` with a fresh HARNESS_TOKEN_ENCRYPTION_KEY if it
+# doesn't already exist. Anything stored in SQLite (GitHub OAuth secret,
+# OpenAI API key, ChatGPT JWT) is encrypted with this key.
+.PHONY: setup-env
+setup-env:
+	@if [ ! -f .env.local ]; then \
+		KEY=$$(openssl rand -base64 32); \
+		printf "HARNESS_TOKEN_ENCRYPTION_KEY=%s\n" "$$KEY" > .env.local; \
+		echo "Generated .env.local with a fresh encryption key."; \
+	else \
+		echo ".env.local already exists — leaving it alone."; \
+	fi
 
 # Codex agent shells out to `rg` constantly when grounding answers in source.
 # Without it, it falls back to find/grep which is much slower.

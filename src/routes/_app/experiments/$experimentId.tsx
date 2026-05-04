@@ -392,6 +392,14 @@ function ExperimentPage() {
               onSend={chat.sendMessage}
               onStop={chat.cancel}
               pending={chat.pending}
+              exportFilename={`harness-${exp.id}-chat`}
+              exportContext={{
+                experimentId: exp.id,
+                title: exp.title,
+                repo: `${exp.repoOrg}/${exp.repoName}`,
+                ref: exp.ref,
+                draft,
+              }}
             />
           </ResizablePanel>
           <ResizableHandle withHandle className="mx-1" />
