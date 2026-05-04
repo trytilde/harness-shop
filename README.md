@@ -4,6 +4,13 @@
 > repetitive engineering workflow into a structured, repeatable loop.
 > Open-source, local-first, contribution-friendly.
 
+[![GitHub stars](https://img.shields.io/github/stars/trytilde/harness-shop?style=social)](https://github.com/trytilde/harness-shop/stargazers)
+
+If this is useful — even just as a reference for wiring Codex agents, MCP
+servers, and a local SQLite agent state machine into a TanStack Start app —
+please **[⭐ star the repo](https://github.com/trytilde/harness-shop)**.
+It helps other people find the project and tells us where to invest next.
+
 `harness-shop` is intentionally a *collection*. Each harness lives in this
 monorepo, shares the same shell (auth, indexing, agent plumbing,
 persistence), and applies it to a specific kind of work. The first
@@ -227,6 +234,12 @@ See [`AGENTS.md`](./AGENTS.md) for the agent/contributor guide and
 [`skills/`](./skills) for reusable agent skills shipped with the
 project. Tests live next to the code (vitest is wired but the suite is
 small; PRs welcome).
+
+## Like it?
+
+If harness-shop saved you an afternoon (or you just liked the code spelunking),
+**[⭐ star it on GitHub](https://github.com/trytilde/harness-shop)** — that's
+how new contributors find the repo and how we decide what to build next.
 
 ## License
 
