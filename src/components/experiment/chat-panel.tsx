@@ -4,7 +4,6 @@ import remarkGfm from 'remark-gfm'
 import { Check, ChevronDown, ChevronRight, Download, Send, Sparkles, Square, Terminal, XCircle } from 'lucide-react'
 
 import { Button } from '#/components/ui/button'
-import { ScrollArea } from '#/components/ui/scroll-area'
 import { Textarea } from '#/components/ui/textarea'
 import type { Part, UIMessage } from '#/lib/use-experiment-chat'
 import { cn } from '#/lib/utils'
@@ -83,8 +82,11 @@ export function ChatPanel({
           Export
         </Button>
       </div>
-      <ScrollArea className="min-h-0 min-w-0 w-full max-w-full flex-1 overflow-hidden">
-        <div ref={scrollRef} className="w-full max-w-full min-w-0 space-y-4 px-4 py-3">
+      <div
+        ref={scrollRef}
+        className="min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto"
+      >
+        <div className="w-full max-w-full min-w-0 space-y-4 px-4 py-3">
           {messages.length === 0 && (
             <div className="text-muted-foreground py-12 text-center text-sm">
               Waking up the agent…
@@ -100,7 +102,7 @@ export function ChatPanel({
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
       <div className="min-w-0 px-4 pt-3 pb-2">
         <div className="flex min-w-0 items-end gap-2">
           <Textarea
