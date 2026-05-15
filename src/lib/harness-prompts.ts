@@ -70,7 +70,10 @@ update_provider_testing.
 Implementation rules:
 1. Stay on the provider work branch. All provider work goes in that clone.
 2. Write full e2e tests and provider/tool code on the first implementation
-   pass. Never write mock-backed Factory CLI e2e tests.
+   pass. These tests must be Go tests in the CLI Factory repo, typically under
+   providers/<provider>/<tool>/e2e_test.go or a provider-local Go test helper.
+   Never write TypeScript evaluators or mock-backed Factory CLI e2e tests for
+   provider acceptance.
 3. If real credentials or external state are missing, block on the required
    secrets/state instead of replacing the e2e with mocks.
 4. Run the narrowest targeted provider/tool e2e command first. Inspect
@@ -163,12 +166,16 @@ Begin the Factory CLI provider iteration loop. Constraints:
 - ${branchInstruction}
   Make a base commit titled "provider harness base for ${experimentId}"
   capturing the current working tree if no run base commit exists.
-- Per run: start_run → run the targeted real provider e2e tests → capture
-  command output and relevant invocation JSON logs with record_run_artifact →
+- Per run: start_run → write/update Go provider code and Go e2e tests in the
+  CLI Factory repo → run the targeted real provider e2e tests → capture command
+  output and relevant invocation JSON logs with record_run_artifact →
   update_provider_implementation with learnings/failures/next_action → commit
-  changes (msg: "run <N>: <summary>") → tag experiment/${experimentId}/<N> →
-  complete_run with status, summary, commit_sha, tag.
-- Never \`git push\`. The clone has no remote anyway.
+  durable repo changes (msg: "run <N>: <summary>") → tag
+  experiment/${experimentId}/<N> → push the provider work branch and tags to
+  origin → complete_run with status, summary, commit_sha, tag.
+- Factory CLI provider work is durable product code. Do not create temporary
+  TypeScript evaluators for provider acceptance; the acceptance checks are the
+  committed Go e2e tests and CLI Factory required checks.
 - Abort after ${maxFails} consecutive failed runs and write a final summary.
 - Do not run destructive real-provider e2e tests until the user has explicitly
   confirmed target account/workspace, cleanup expectations, and spend/rate-limit
@@ -297,6 +304,12 @@ Factory CLI provider sidebar flow:
      override_test_secrets.yaml shape, then call update_provider_testing. The
      UI will render a secrets modal from this state and save values into
      override_test_secrets.yaml in the provider directory.
+     For providers that use OAuth, OIDC, device auth, service accounts, or
+     related delegated auth flows, prefer persistent test credentials in
+     secrets.yaml or override_test_secrets.yaml: client_id, client_secret,
+     tenant/issuer data, refresh_token or test login credentials when
+     appropriate. Do not design the e2e plan around a short-lived access token
+     unless the API truly has no durable credential flow.
   4. Implementation: after secrets/testing are confirmed, HARNESS PHASE START
      means write full e2e tests and provider code on the first pass, run
      targeted e2e tests, inspect failures/logs, patch, and iterate until all
@@ -310,6 +323,11 @@ Factory CLI provider rules:
     providers/<provider>/<tool>.
   • Metadata and schemas drive docs and catalog generation.
   • Credentials are not stored. Auth details are provider parameters.
+  • OAuth/OIDC-style providers should normally collect durable test auth
+    material in secrets.yaml or override_test_secrets.yaml, such as client id,
+    client secret, tenant/issuer values, refresh token, service account key, or
+    dedicated test login credentials. Avoid short-lived bearer/access tokens as
+    the primary e2e secret shape.
   • Do not run destructive real-provider e2e tests without explicit user
     confirmation of account/workspace, cleanup, spend, and rate limits.
   • Do not advance Factory CLI provider work into plan/testing/implementation
@@ -329,13 +347,16 @@ Harness implementation phase:
   • A message beginning HARNESS PHASE START means start editing files.
   • For generic experiments, build a runnable harness that produces
     artifacts/metrics and calls experiment_state setters for evaluators.
-  • For Factory CLI providers, implement the provider/e2e plan directly and
-    keep provider progress in update_provider_implementation.
+  • For Factory CLI providers, implement the provider/e2e plan directly in the
+    CLI Factory Go repo, including Go e2e tests. Keep provider progress in
+    update_provider_implementation.
   • Don't git commit during harness implementation.
 
 Run execution phase:
   • A message beginning RUN PHASE START means begin the autonomous run loop.
-  • Make local commits/tags for each run. Never push.
+  • Generic experiments make local commits/tags for each run and never push.
+    Factory CLI provider runs commit durable provider changes and push the
+    provider work branch/tags to origin.
   • Keep iterating through tests and failures until pass/completed or the
     failure cap is reached.`
 }

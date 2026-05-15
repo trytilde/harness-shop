@@ -17,6 +17,7 @@ import type {
   SubGoal,
 } from '#/lib/types'
 import { DEFAULT_HARNESS_ID, type HarnessId } from '#/lib/harness-definitions'
+import { buildAuthCloneUrl } from '#/server/indexing/runner'
 
 export const listExperimentsFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<Experiment[]> => {
@@ -130,6 +131,14 @@ export const createExperimentForRefFn = createServerFn({ method: 'POST' })
           await simpleGit(indexed.clonePath).checkout(workBranch!)
         },
       )
+      const repo = simpleGit(indexed.clonePath)
+      const cloneUrl = await buildAuthCloneUrl(data.org, data.name)
+      const remotes = await repo.getRemotes(true)
+      if (remotes.some((remote) => remote.name === 'origin')) {
+        await repo.remote(['set-url', 'origin', cloneUrl])
+      } else {
+        await repo.addRemote('origin', cloneUrl)
+      }
     }
     await db.insert(schema.experiments).values({
       id,

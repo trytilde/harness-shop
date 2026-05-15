@@ -377,6 +377,7 @@ function ExperimentPage() {
       ) : tab === 'runs' ? (
         <RunsTab
           experimentId={exp.id}
+          harnessId={exp.harnessId}
           refreshTick={chat.toolCompletionTick}
           agentPending={chat.pending}
         />

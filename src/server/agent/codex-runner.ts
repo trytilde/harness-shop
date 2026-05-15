@@ -168,8 +168,9 @@ export async function* runAgentTurn(
       // Codex's workspace-write sandbox protects `.git` as read-only by
       // default, which makes git branch/commit/tag fail with EROFS. Allow
       // writes there explicitly so the agent can run git directly per
-      // run-phase instructions. The clone has no `origin` remote (we
-      // remove it in the indexing runner) so a stray push isn't possible.
+      // run-phase instructions. Generic experiment prompts forbid pushing;
+      // Factory CLI provider prompts intentionally push the provider work
+      // branch after committing durable repo changes.
       sandbox_workspace_write: {
         writable_roots: [join(clonePath, '.git')],
         network_access: true,

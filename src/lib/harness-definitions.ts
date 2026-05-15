@@ -55,9 +55,9 @@ export const HARNESS_DEFINITIONS: HarnessDefinition[] = [
     designBrief:
       'Guide the user through a structured add-or-update provider harness for CLI Factory. Resolve provider id, provider params, curated high-level tools, destructive behavior, auth model, docs/catalog effects, and e2e safety before implementation.',
     harnessPhaseBrief:
-      'Generate an implementation plan, tests, and fixture strategy for adding or updating the provider. The harness must execute targeted provider tests, docs generation, catalog generation, build, and keep iterating on failures until the provider is complete or blocked by missing real credentials.',
+      'Implement the provider plan directly in the CLI Factory Go repo, including Go e2e tests, docs generation, catalog generation, build checks, and iteration until complete or blocked by missing real credentials.',
     runPhaseBrief:
-      'Autonomously add or update the provider in small iterations. After every change run the narrowest relevant command first, inspect failures/logs, fix, and broaden to CLI Factory required checks. Do not run destructive real-provider e2e tests without explicit confirmation.',
+      'Autonomously add or update the provider in small committed iterations, run the narrowest real Go e2e tests first, inspect failures/logs, fix, broaden to CLI Factory required checks, and push the provider work branch. Do not run destructive real-provider e2e tests without explicit confirmation.',
   },
 ]
 

@@ -40,10 +40,12 @@ const STATUS_TONE: Record<RunStatus, string> = {
 
 export function RunsTab({
   experimentId,
+  harnessId,
   refreshTick,
   agentPending,
 }: {
   experimentId: string
+  harnessId?: string
   refreshTick: number
   agentPending: boolean
 }) {
@@ -74,21 +76,46 @@ export function RunsTab({
     }
   }, [experimentId, refreshTick, agentPending])
 
+  const isFactoryProvider = harnessId === 'factory-cli-provider'
+
   return (
     <ScrollArea className="h-full w-full min-h-0 min-w-0">
       <div className="space-y-6 px-1 py-1 min-w-0">
-        <RunsTable runs={runs} />
-        <MetricsCharts runs={runs} metrics={metrics} />
+        <RunsTable runs={runs} isFactoryProvider={isFactoryProvider} />
+        {isFactoryProvider ? (
+          <div className="text-muted-foreground rounded-lg border border-dashed py-10 text-center text-xs">
+            Factory CLI provider checks are Go e2e tests committed in the
+            provider branch. Review run summaries, commits, tags, and the Diffs
+            tab for the durable repo changes.
+          </div>
+        ) : (
+          <MetricsCharts runs={runs} metrics={metrics} />
+        )}
       </div>
     </ScrollArea>
   )
 }
 
-function RunsTable({ runs }: { runs: ExperimentRun[] }) {
+function RunsTable({
+  runs,
+  isFactoryProvider,
+}: {
+  runs: ExperimentRun[]
+  isFactoryProvider: boolean
+}) {
   if (runs.length === 0) {
     return (
       <div className="text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm">
-        No runs yet. Hit <strong>Start runs</strong> in the Chat tab.
+        {isFactoryProvider ? (
+          <>
+            No provider iterations yet. Hit{' '}
+            <strong>Start iterative e2e loop</strong> in the Chat tab.
+          </>
+        ) : (
+          <>
+            No runs yet. Hit <strong>Start runs</strong> in the Chat tab.
+          </>
+        )}
       </div>
     )
   }
@@ -99,8 +126,15 @@ function RunsTable({ runs }: { runs: ExperimentRun[] }) {
           <TableRow>
             <TableHead className="w-[64px]">#</TableHead>
             <TableHead>Title</TableHead>
-            <TableHead className="w-[120px]">Sub-goals</TableHead>
-            <TableHead className="w-[120px]">Evaluators</TableHead>
+            {!isFactoryProvider && (
+              <>
+                <TableHead className="w-[120px]">Sub-goals</TableHead>
+                <TableHead className="w-[120px]">Evaluators</TableHead>
+              </>
+            )}
+            {isFactoryProvider && (
+              <TableHead className="w-[140px]">Commit</TableHead>
+            )}
             <TableHead className="w-[120px]">Tag</TableHead>
             <TableHead className="w-[140px] text-right">Status</TableHead>
           </TableRow>
@@ -122,12 +156,21 @@ function RunsTable({ runs }: { runs: ExperimentRun[] }) {
                   </p>
                 )}
               </TableCell>
-              <TableCell className="font-mono text-xs">
-                {r.subgoalsPassed}/{r.subgoalsTotal}
-              </TableCell>
-              <TableCell className="font-mono text-xs">
-                {r.evaluatorsPassed}/{r.evaluatorsTotal}
-              </TableCell>
+              {!isFactoryProvider && (
+                <>
+                  <TableCell className="font-mono text-xs">
+                    {r.subgoalsPassed}/{r.subgoalsTotal}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {r.evaluatorsPassed}/{r.evaluatorsTotal}
+                  </TableCell>
+                </>
+              )}
+              {isFactoryProvider && (
+                <TableCell className="font-mono text-[11px]">
+                  {r.commitSha ? r.commitSha.slice(0, 8) : '—'}
+                </TableCell>
+              )}
               <TableCell className="font-mono text-[11px]">
                 {r.tag ?? '—'}
               </TableCell>
