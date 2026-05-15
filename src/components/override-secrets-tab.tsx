@@ -36,9 +36,9 @@ export function OverrideSecretsTab({
   disabled?: boolean
   onSaved?: (path: string) => void
 }) {
+  const fallbackConfig = fallbackConfigFromRequiredSecrets(requiredSecrets, providerId)
   const resolvedConfig =
-    normalizeConfig(config) ??
-    fallbackConfigFromRequiredSecrets(requiredSecrets, providerId)
+    normalizeConfig(config, fallbackConfig) ?? fallbackConfig
 
   if (!resolvedConfig) {
     return (
@@ -245,11 +245,22 @@ function schemaFields(schema?: JsonSchema) {
 
 function normalizeConfig(
   config?: OverrideSecretsFormConfig,
+  fallback?: OverrideSecretsFormConfig,
 ): OverrideSecretsFormConfig | undefined {
   if (!config) return undefined
+  const normalized = normalizeSchema(config.schema)
+  if (Object.keys(normalized.properties ?? {}).length === 0 && fallback) {
+    return {
+      ...fallback,
+      providerId: config.providerId || fallback.providerId,
+      file: config.file || fallback.file,
+      savedPath: config.savedPath,
+      savedAt: config.savedAt,
+    }
+  }
   return {
     ...config,
-    schema: normalizeSchema(config.schema),
+    schema: normalized,
   }
 }
 
