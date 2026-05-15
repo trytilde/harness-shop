@@ -83,8 +83,8 @@ export function ChatPanel({
           Export
         </Button>
       </div>
-      <ScrollArea className="min-h-0 min-w-0 w-full flex-1">
-        <div ref={scrollRef} className="space-y-4 px-4 py-3 min-w-0">
+      <ScrollArea className="min-h-0 min-w-0 w-full max-w-full flex-1 overflow-hidden">
+        <div ref={scrollRef} className="w-full max-w-full min-w-0 space-y-4 px-4 py-3">
           {messages.length === 0 && (
             <div className="text-muted-foreground py-12 text-center text-sm">
               Waking up the agent…
@@ -101,13 +101,13 @@ export function ChatPanel({
           )}
         </div>
       </ScrollArea>
-      <div className="px-4 pt-3 pb-2 min-w-0">
-        <div className="flex items-end gap-2">
+      <div className="min-w-0 px-4 pt-3 pb-2">
+        <div className="flex min-w-0 items-end gap-2">
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={placeholder}
-            className="min-h-[60px] resize-none min-w-0"
+            className="min-h-[60px] min-w-0 resize-none"
             disabled={pending}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -148,8 +148,8 @@ function Message({ message }: { message: UIMessage }) {
 
   if (isUser) {
     return (
-      <div className="flex justify-end min-w-0">
-        <div className="bg-primary text-primary-foreground max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words">
+      <div className="flex w-full min-w-0 justify-end">
+        <div className="bg-primary text-primary-foreground max-w-[85%] min-w-0 overflow-hidden rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
           {message.parts
             .map((p) => (p.kind === 'text' ? p.text : ''))
             .join('')}
@@ -159,7 +159,7 @@ function Message({ message }: { message: UIMessage }) {
   }
 
   return (
-    <div className="flex flex-col gap-2 text-sm min-w-0">
+    <div className="flex w-full max-w-full min-w-0 flex-col gap-2 overflow-hidden text-sm">
       {message.parts.length === 0 && (
         <div className="text-muted-foreground text-xs italic">
           Waiting for the agent…
@@ -182,7 +182,7 @@ function PartView({ part }: { part: Part }) {
 
 function MarkdownText({ text }: { text: string }) {
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed">
+    <div className="prose prose-sm dark:prose-invert max-w-full min-w-0 overflow-hidden break-words leading-relaxed [overflow-wrap:anywhere] [&_*]:max-w-full [&_a]:break-all [&_li]:break-words [&_p]:break-words [&_table]:block [&_table]:overflow-x-auto">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -190,7 +190,7 @@ function MarkdownText({ text }: { text: string }) {
           pre: (props) => (
             <pre
               {...props}
-              className="bg-muted overflow-x-auto rounded-md p-3 text-[12px] leading-relaxed"
+              className="bg-muted max-w-full overflow-x-auto rounded-md p-3 text-[12px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
             />
           ),
           code: ({ inline, className, children, ...props }: {
@@ -206,7 +206,13 @@ function MarkdownText({ text }: { text: string }) {
                 {children}
               </code>
             ) : (
-              <code className={className} {...props}>
+              <code
+                className={cn(
+                  className,
+                  'whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
+                )}
+                {...props}
+              >
                 {children}
               </code>
             ),
@@ -243,7 +249,7 @@ function ToolCallView({ part }: { part: Extract<Part, { kind: 'tool' }> }) {
         : 'border-amber-500/30 bg-amber-500/5'
 
   return (
-    <div className={cn('rounded-md border text-xs min-w-0', tone)}>
+    <div className={cn('min-w-0 max-w-full overflow-hidden rounded-md border text-xs', tone)}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -263,12 +269,12 @@ function ToolCallView({ part }: { part: Extract<Part, { kind: 'tool' }> }) {
         </span>
       </button>
       {open && (
-        <div className="space-y-2 border-t px-2.5 py-2 min-w-0">
+        <div className="min-w-0 space-y-2 border-t px-2.5 py-2">
           <div>
             <div className="text-muted-foreground mb-1 text-[10px] uppercase">
               Input
             </div>
-            <pre className="bg-background/50 max-h-40 overflow-auto rounded p-2 font-mono text-[10px] leading-relaxed">
+            <pre className="bg-background/50 max-h-40 max-w-full overflow-auto rounded p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
               <code>{stringifySafe(part.input)}</code>
             </pre>
           </div>
@@ -277,7 +283,7 @@ function ToolCallView({ part }: { part: Extract<Part, { kind: 'tool' }> }) {
               <div className="text-muted-foreground mb-1 text-[10px] uppercase">
                 Output
               </div>
-              <pre className="bg-background/50 max-h-40 overflow-auto rounded p-2 font-mono text-[10px] leading-relaxed">
+              <pre className="bg-background/50 max-h-40 max-w-full overflow-auto rounded p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                 <code>{stringifySafe(part.output)}</code>
               </pre>
             </div>
