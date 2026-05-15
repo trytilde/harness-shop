@@ -7,7 +7,7 @@
 //
 // stdio MCP server, single tenant per experiment_id (passed via env).
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 
@@ -96,6 +96,27 @@ function saveGeneratorMetadata(providerId, patch) {
   mkdirSync(dirname(path), { recursive: true })
   const next = { ...loadGeneratorMetadata(providerId), ...patch }
   writeFileSync(path, YAML.stringify(next), { mode: 0o644 })
+}
+
+function providerDir(providerId) {
+  const clonePath = process.env.HARNESS_CLONE_PATH
+  if (!clonePath) throw new Error('HARNESS_CLONE_PATH is required')
+  return join(clonePath, 'providers', providerId)
+}
+
+function walkFiles(root, predicate) {
+  if (!existsSync(root)) return []
+  const out = []
+  for (const entry of readdirSync(root)) {
+    const path = join(root, entry)
+    const stat = statSync(path)
+    if (stat.isDirectory()) {
+      out.push(...walkFiles(path, predicate))
+    } else if (predicate(path)) {
+      out.push(path)
+    }
+  }
+  return out
 }
 
 function upsertProviderHarness(draft, patch) {
@@ -521,6 +542,65 @@ server.registerTool(
       },
     })
     return ok(`Provider implementation notes updated.`, { provider_id })
+  },
+)
+
+server.registerTool(
+  'validate_provider_source_of_truth',
+  {
+    title: 'Validate Factory CLI provider metadata and schema source of truth',
+    description:
+      'Checks a provider for YAML/generated metadata compliance before committing: cli-metadata.yaml and input/output schema YAML must be the source of truth, metadata_gen.go must exist, and handwritten Go must not hard-code provider/tool metadata or JSON schemas.',
+    inputSchema: {
+      provider_id: z.string().min(1),
+    },
+  },
+  async ({ provider_id }) => {
+    const root = providerDir(provider_id)
+    const findings = []
+    if (!existsSync(root)) {
+      return fail(`Provider directory does not exist: providers/${provider_id}`)
+    }
+
+    if (!existsSync(join(root, 'metadata_gen.go'))) {
+      findings.push('Missing providers/<provider>/metadata_gen.go. Run make generate-metadata.')
+    }
+
+    for (const dir of [root, ...readdirSync(root).map((entry) => join(root, entry))]) {
+      if (!existsSync(dir) || !statSync(dir).isDirectory()) continue
+      const hasToolMetadata = existsSync(join(dir, 'cli-metadata.yaml'))
+      const hasMod = existsSync(join(dir, 'mod.go'))
+      if (hasToolMetadata && hasMod && !existsSync(join(dir, 'metadata_gen.go'))) {
+        findings.push(`Missing ${dir.replace(root + '/', 'providers/' + provider_id + '/')}/metadata_gen.go. Run make generate-metadata.`)
+      }
+    }
+
+    const goFiles = walkFiles(root, (path) => path.endsWith('.go') && !path.endsWith('_gen.go') && !path.endsWith('_test.go'))
+    const hardcodedPatterns = [
+      /func\s*\([^)]*\)\s*ID\(\)\s*string\s*\{\s*return\s*"/,
+      /func\s*\([^)]*\)\s*Name\(\)\s*string\s*\{\s*return\s*"/,
+      /func\s*\([^)]*\)\s*ShortDescription\(\)\s*string\s*\{\s*return\s*"/,
+      /func\s*\([^)]*\)\s*LongDescription\(\)\s*string\s*\{\s*return\s*(?:"|`)/,
+      /func\s*\([^)]*\)\s*Categories\(\)\s*\[\]string\s*\{\s*return\s*\[\]string/,
+      /func\s*\([^)]*\)\s*Aliases\(\)\s*\[\]string\s*\{\s*return\s*\[\]string/,
+      /func\s*\([^)]*\)\s*Parameters\(\)\s*\[\]provider\.Parameter\s*\{\s*return\s*\[\]provider\.Parameter/,
+      /func\s*\([^)]*\)\s*InputSchema\(\)\s*schema\.JSONSchema\s*\{\s*return\s*schema\.JSONSchema/,
+      /func\s*\([^)]*\)\s*OutputSchema\(\)\s*schema\.JSONSchema\s*\{\s*return\s*schema\.JSONSchema/,
+    ]
+    for (const path of goFiles) {
+      const text = readFileSync(path, 'utf8')
+      for (const pattern of hardcodedPatterns) {
+        if (pattern.test(text)) {
+          findings.push(`${path.replace(root + '/', 'providers/' + provider_id + '/')} appears to hard-code metadata or schema in handwritten Go.`)
+          break
+        }
+      }
+    }
+
+    if (findings.length > 0) {
+      return fail(`Provider source-of-truth validation failed:\n${findings.map((f) => `- ${f}`).join('\n')}`)
+    }
+    return ok('Provider source-of-truth validation passed.', { provider_id })
   },
 )
 

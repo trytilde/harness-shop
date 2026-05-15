@@ -80,11 +80,15 @@ Implementation rules:
    SUCCESS/FAILURE output and invocation JSON logs, patch, and retry.
 5. Broaden to make test-unit, make test-e2e, make generate-docs,
    make generate-catalog, and make build once targeted e2e behavior is sound.
-6. Call update_provider_implementation after each meaningful iteration with
+6. Run make generate-metadata after metadata/schema edits, then call
+   validate_provider_source_of_truth before any commit or complete_run. If it
+   fails, fix handwritten Go so it references metadata_gen.go values instead
+   of hard-coding provider/tool metadata or JSON schemas.
+7. Call update_provider_implementation after each meaningful iteration with
    learnings, last_failure, and next_action. Treat generator-metadata.yaml as
    the durable provider harness contract grouped by discovery, plan, testing,
    and implementation.
-7. Don't git commit yet. Leave changes in the working tree so the Diffs tab can
+8. Don't git commit yet. Leave changes in the working tree so the Diffs tab can
    show the provider implementation diff.
 
 Stream a short summary in chat after each significant edit (file + reason).`
@@ -185,6 +189,11 @@ Begin the Factory CLI provider iteration loop. Constraints:
   complete the run as requires_input/failed with a clear blocker.
 - After targeted e2e passes, broaden to docs generation, catalog generation,
   build, and required test suites.
+- Before every provider run commit and before complete_run, run
+  validate_provider_source_of_truth(provider_id). It must pass. If it fails,
+  run make generate-metadata and remove handwritten Go metadata/schema
+  duplication so provider/tool metadata and JSON schemas come only from YAML
+  plus metadata_gen.go.
 - The user can press an emergency Stop button. If you receive an AbortError,
   do not start a new run.
 
@@ -344,6 +353,10 @@ Factory CLI provider rules:
   • After editing metadata or schemas, run make generate-metadata before tests,
     docs, catalog generation, or build. Generated metadata_gen.go files are
     committed provider artifacts but must never be manually edited.
+  • Before committing Factory CLI provider work, call
+    validate_provider_source_of_truth. A failure means you must remove
+    handwritten Go metadata/schema duplication, run make generate-metadata,
+    and re-run the validation.
   • Credentials are not stored. Auth details are provider parameters.
   • OAuth/OIDC-style providers should normally collect durable test auth
     material in secrets.yaml or override_test_secrets.yaml, such as client id,
