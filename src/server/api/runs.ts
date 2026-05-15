@@ -142,10 +142,20 @@ export const setExperimentPhaseFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const db = await getDb()
     await db.run(
-      sql`UPDATE experiments SET phase = ${data.phase}, updated_at = unixepoch() WHERE id = ${data.experimentId}`,
+      sql`UPDATE experiments
+            SET phase = ${data.phase},
+                status = ${statusForPhase(data.phase)},
+                updated_at = unixepoch()
+            WHERE id = ${data.experimentId}`,
     )
     return { ok: true as const }
   })
+
+function statusForPhase(phase: 'design' | 'harness' | 'runs' | 'completed') {
+  if (phase === 'completed') return 'finished'
+  if (phase === 'harness' || phase === 'runs') return 'running'
+  return 'draft'
+}
 
 const maxFailSchema = z.object({
   experimentId: z.string().min(1),

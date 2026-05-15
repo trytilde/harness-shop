@@ -303,6 +303,13 @@ function ExperimentPage() {
           <span className="text-muted-foreground/60">·</span>
           <GitBranch className="size-3" />
           <span className="font-mono">{exp.ref}</span>
+          {draft?.workBranch && draft.workBranch !== exp.ref && (
+            <>
+              <span className="text-muted-foreground/60">→</span>
+              <GitBranch className="size-3" />
+              <span className="font-mono">{draft.workBranch}</span>
+            </>
+          )}
         </div>
 
         <TabSwitcher tab={tab} onTab={setTab} />

@@ -120,6 +120,20 @@ async function saveDraft(draft) {
   })
 }
 
+function experimentStatusForPhase(phase) {
+  if (phase === 'completed') return 'finished'
+  if (phase === 'harness' || phase === 'runs') return 'running'
+  return 'draft'
+}
+
+async function updateExperimentStatus(status) {
+  await client.execute({
+    sql:
+      'UPDATE experiments SET status = ?, updated_at = unixepoch() WHERE id = ?',
+    args: [status, EXPERIMENT_ID],
+  })
+}
+
 function ok(text, structured) {
   return {
     content: [{ type: 'text', text }],
@@ -754,8 +768,8 @@ server.registerTool(
   async ({ phase }) => {
     await client.execute({
       sql:
-        'UPDATE experiments SET phase = ?, updated_at = unixepoch() WHERE id = ?',
-      args: [phase, EXPERIMENT_ID],
+        'UPDATE experiments SET phase = ?, status = ?, updated_at = unixepoch() WHERE id = ?',
+      args: [phase, experimentStatusForPhase(phase), EXPERIMENT_ID],
     })
     return ok(`Phase = ${phase}`, { phase })
   },
@@ -796,6 +810,7 @@ server.registerTool(
         base_commit_sha ?? null,
       ],
     })
+    await updateExperimentStatus('running')
     return ok(`Run ${next} started: ${id}`, { run_id: id, run_number: next })
   },
 )
@@ -933,6 +948,7 @@ server.registerTool(
         run_id,
       ],
     })
+    await updateExperimentStatus(status === 'passed' ? 'finished' : status)
     return ok(`Run ${run_id} completed (${status})`, { id: run_id })
   },
 )
