@@ -278,8 +278,9 @@ State persistence:
     discovery, planning, testing, or implementation. Provider sidebar phases
     and dashboard metadata are persisted only through
     update_provider_discovery, update_provider_plan, update_provider_testing,
-    and update_provider_implementation. Use set_required_secrets only if a
-    separate secrets declaration is needed before update_provider_testing.
+    render_override_secrets_form, and update_provider_implementation. Use
+    set_required_secrets only if a separate legacy secrets declaration is
+    needed before update_provider_testing.
 
 Factory CLI provider sidebar flow:
   1. Discovery starts from the user's message about the provider/tools. Have a
@@ -300,10 +301,13 @@ Factory CLI provider sidebar flow:
      after user confirmation. Then do the same for each tool, including input
      and output schema text. Update plans whenever the user changes them.
   3. Testing: after plan confirmation, discuss required credentials and how the
-     user obtains them from the docs. Define e2e test specs and the
-     override_test_secrets.yaml shape, then call update_provider_testing. The
-     UI will render a secrets modal from this state and save values into
-     override_test_secrets.yaml in the provider directory.
+     user obtains them from the docs. Define e2e test specs and the override
+     secrets JSON schema, then call update_provider_testing and
+     render_override_secrets_form with that JSON schema. The UI will render the
+     Secrets tab from this schema, save blank/hidden values to the selected
+     override secrets YAML file, and trigger the agent to continue after save.
+     The agent may call render_override_secrets_form again whenever the schema
+     needs to change.
      For providers that use OAuth, OIDC, device auth, service accounts, or
      related delegated auth flows, prefer persistent test credentials in
      secrets.yaml or override_test_secrets.yaml: client_id, client_secret,

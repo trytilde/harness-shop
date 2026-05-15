@@ -34,14 +34,12 @@ export function ProviderSecretsDialog({
   experimentId: string
   requiredSecrets: RequiredSecret[]
   providerId?: string
-  file?: 'test_secrets.yaml' | 'override_test_secrets.yaml'
+  file?: 'test_secrets.yaml' | 'override_test_secrets.yaml' | 'override_secrets.yaml'
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [providerId, setProviderId] = useState(defaultProviderId ?? '')
-  const [file, setFile] = useState<'test_secrets.yaml' | 'override_test_secrets.yaml'>(
-    defaultFile,
-  )
+  const [file, setFile] = useState<typeof defaultFile>(defaultFile)
   const [values, setValues] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -111,6 +109,9 @@ export function ProviderSecretsDialog({
                 <SelectItem value="test_secrets.yaml">test_secrets.yaml</SelectItem>
                 <SelectItem value="override_test_secrets.yaml">
                   override_test_secrets.yaml
+                </SelectItem>
+                <SelectItem value="override_secrets.yaml">
+                  override_secrets.yaml
                 </SelectItem>
               </SelectContent>
             </Select>

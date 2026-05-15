@@ -8,6 +8,7 @@ import {
   Github,
   Loader2,
   MessageSquareText,
+  KeyRound,
   Square,
 } from 'lucide-react'
 
@@ -17,6 +18,7 @@ import { DraftPanel } from '#/components/experiment/draft-panel'
 import { EditableTitle } from '#/components/experiment/editable-title'
 import { RunsTab } from '#/components/experiment/runs-tab'
 import { FactoryCliProviderPanel } from '#/components/factory-cli-provider-panel'
+import { OverrideSecretsTab } from '#/components/override-secrets-tab'
 import { SettingsDialog } from '#/components/settings-dialog'
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -69,7 +71,7 @@ function ExperimentPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [draft, setDraft] = useState<ExperimentDraft | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [tab, setTab] = useState<'chat' | 'runs' | 'diffs'>('chat')
+  const [tab, setTab] = useState<TabId>('chat')
 
   // Load the experiment row.
   useEffect(() => {
@@ -134,6 +136,7 @@ function ExperimentPage() {
           harnessId: d.harnessId,
           workBranch: d.workBranch,
           providerHarness: d.providerHarness,
+          overrideSecretsForm: d.overrideSecretsForm,
           goal: d.goal,
           infoBlocks: d.infoBlocks,
           requiredSecrets: d.requiredSecrets,
@@ -381,6 +384,18 @@ function ExperimentPage() {
           refreshTick={chat.toolCompletionTick}
           agentPending={chat.pending}
         />
+      ) : tab === 'secrets' ? (
+        <OverrideSecretsTab
+          experimentId={exp.id}
+          config={draft.overrideSecretsForm}
+          disabled={chat.pending}
+          onSaved={(path) => {
+            void chat.sendMessage(
+              `Override secrets saved to ${path}. Continue from the provider testing phase using the saved secrets.`,
+            )
+            setTab('chat')
+          }}
+        />
       ) : (
         <DiffsTab experimentId={exp.id} />
       )}
@@ -392,7 +407,7 @@ function ExperimentPage() {
   )
 }
 
-type TabId = 'chat' | 'runs' | 'diffs'
+type TabId = 'chat' | 'runs' | 'secrets' | 'diffs'
 
 function TabSwitcher({
   tab,
@@ -428,6 +443,7 @@ function TabSwitcher({
     <div className="flex items-center gap-1">
       <Item id="chat" label="Chat" icon={MessageSquareText} />
       <Item id="runs" label="Runs" icon={Activity} />
+      <Item id="secrets" label="Secrets" icon={KeyRound} />
       <Item id="diffs" label="Diffs" icon={FileDiff} />
     </div>
   )

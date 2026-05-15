@@ -98,6 +98,7 @@ export type ExperimentDraft = {
   harnessId?: string
   workBranch?: string
   providerHarness?: ProviderHarnessDraft
+  overrideSecretsForm?: OverrideSecretsFormConfig
   repo: { org: string; name: string }
   ref: ExperimentRef
   goal: string
@@ -110,6 +111,26 @@ export type ExperimentDraft = {
     description: string
     code?: string
   }
+}
+
+export type JsonSchema = {
+  type?: string | string[]
+  title?: string
+  description?: string
+  properties?: Record<string, JsonSchema>
+  required?: string[]
+  enum?: Array<string | number | boolean>
+  default?: string | number | boolean
+  format?: string
+  writeOnly?: boolean
+}
+
+export type OverrideSecretsFormConfig = {
+  providerId: string
+  file: 'test_secrets.yaml' | 'override_test_secrets.yaml' | 'override_secrets.yaml'
+  schema: JsonSchema
+  savedPath?: string
+  savedAt?: number
 }
 
 export type ProviderReferenceKind = 'auth' | 'api_usage' | 'general'

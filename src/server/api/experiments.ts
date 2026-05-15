@@ -259,6 +259,7 @@ export const getExperimentDraftFn = createServerFn({ method: 'GET' })
       harnessId?: string
       workBranch?: string
       providerHarness?: ExperimentDraft['providerHarness']
+      overrideSecretsForm?: ExperimentDraft['overrideSecretsForm']
       infoBlocks: HarnessInfoBlock[]
       requiredSecrets: RequiredSecret[]
       subGoals: SubGoal[]
@@ -276,6 +277,7 @@ export const getExperimentDraftFn = createServerFn({ method: 'GET' })
         harnessId: row.harnessId ?? DEFAULT_HARNESS_ID,
         workBranch: undefined as string | undefined,
         providerHarness: undefined as ExperimentDraft['providerHarness'],
+        overrideSecretsForm: undefined as ExperimentDraft['overrideSecretsForm'],
         goal: '',
         infoBlocks: [] as HarnessInfoBlock[],
         requiredSecrets: [] as RequiredSecret[],

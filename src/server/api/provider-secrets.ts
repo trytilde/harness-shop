@@ -14,10 +14,10 @@ const saveSecretsSchema = z.object({
     .string()
     .min(1)
     .regex(/^[a-z0-9][a-z0-9-]*$/),
-  values: z.record(z.string(), z.string()),
-  file: z.enum(['test_secrets.yaml', 'override_test_secrets.yaml']).default(
-    'test_secrets.yaml',
-  ),
+  values: z.record(z.string(), z.unknown()),
+  file: z
+    .enum(['test_secrets.yaml', 'override_test_secrets.yaml', 'override_secrets.yaml'])
+    .default('override_test_secrets.yaml'),
 })
 
 export const saveProviderSecretsFn = createServerFn({ method: 'POST' })
@@ -50,6 +50,26 @@ export const saveProviderSecretsFn = createServerFn({ method: 'POST' })
     await mkdir(providerDir, { recursive: true })
     const yaml = YAML.stringify(data.values)
     await writeFile(target, yaml, { mode: 0o600 })
+    let draft: Record<string, unknown> = {}
+    if (exp.draftJson) {
+      try {
+        draft = JSON.parse(exp.draftJson) as Record<string, unknown>
+      } catch {}
+    }
+    const existingForm =
+      typeof draft.overrideSecretsForm === 'object' && draft.overrideSecretsForm
+        ? (draft.overrideSecretsForm as Record<string, unknown>)
+        : {}
+    draft.overrideSecretsForm = {
+      ...existingForm,
+      providerId: data.providerId,
+      file: data.file,
+      savedPath: join('providers', data.providerId, data.file),
+      savedAt: Date.now(),
+    }
+    await db
+      .update(schema.experiments)
+      .set({ draftJson: JSON.stringify(draft), updatedAt: new Date() })
+      .where(eq(schema.experiments.id, data.experimentId))
     return { path: join('providers', data.providerId, data.file) }
   })
-

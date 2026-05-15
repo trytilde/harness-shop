@@ -11,7 +11,6 @@ import {
   Wrench,
 } from 'lucide-react'
 
-import { ProviderSecretsDialog } from '#/components/provider-secrets-dialog'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -241,13 +240,11 @@ export function FactoryCliProviderPanel({
                     </Badge>
                   ))}
                 </div>
-                <ProviderSecretsDialog
-                  experimentId={experimentId}
-                  providerId={provider?.providerId}
-                  file="override_test_secrets.yaml"
-                  requiredSecrets={requiredSecrets}
-                  disabled={agentPending}
-                />
+                <p className="text-muted-foreground text-xs">
+                  Use the Secrets tab to enter or update these values. The form
+                  is rendered from the schema the agent persisted with
+                  render_override_secrets_form.
+                </p>
               </div>
             )}
           </ProviderSection>
