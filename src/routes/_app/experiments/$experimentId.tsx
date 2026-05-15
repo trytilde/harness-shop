@@ -394,6 +394,8 @@ function ExperimentPage() {
         <OverrideSecretsTab
           experimentId={exp.id}
           config={draft.overrideSecretsForm}
+          requiredSecrets={draft.requiredSecrets}
+          providerId={draft.providerHarness?.providerId}
           disabled={chat.pending}
           onSaved={(path) => {
             void chat.sendMessage(

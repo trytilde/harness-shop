@@ -12,7 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
-import type { JsonSchema, OverrideSecretsFormConfig } from '#/lib/types'
+import type {
+  JsonSchema,
+  OverrideSecretsFormConfig,
+  RequiredSecret,
+} from '#/lib/types'
 import { saveProviderSecretsFn } from '#/server/api/provider-secrets'
 
 type SecretValue = string | number | boolean
@@ -20,18 +24,27 @@ type SecretValue = string | number | boolean
 export function OverrideSecretsTab({
   experimentId,
   config,
+  requiredSecrets = [],
+  providerId,
   disabled,
   onSaved,
 }: {
   experimentId: string
   config?: OverrideSecretsFormConfig
+  requiredSecrets?: RequiredSecret[]
+  providerId?: string
   disabled?: boolean
   onSaved?: (path: string) => void
 }) {
-  if (!config) {
+  const resolvedConfig =
+    normalizeConfig(config) ??
+    fallbackConfigFromRequiredSecrets(requiredSecrets, providerId)
+
+  if (!resolvedConfig) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center rounded-lg border border-dashed text-sm">
-        The agent has not rendered an override secrets form yet.
+        The agent has not rendered an override secrets form or required secrets
+        yet.
       </div>
     )
   }
@@ -39,7 +52,7 @@ export function OverrideSecretsTab({
   return (
     <OverrideSecretsForm
       experimentId={experimentId}
-      config={config}
+      config={resolvedConfig}
       disabled={disabled}
       onSaved={onSaved}
       className="h-full"
@@ -64,11 +77,10 @@ export function OverrideSecretsForm({
   const [values, setValues] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [savedPath, setSavedPath] = useState<string | null>(
-    config?.savedPath ?? null,
-  )
+  const [savedPath, setSavedPath] = useState<string | null>(null)
 
-  const required = new Set(config.schema.required ?? [])
+  const schema = normalizeSchema(config.schema)
+  const required = new Set(schema.required ?? [])
   const missing = fields.some(
     (field) => required.has(field.name) && !String(values[field.name] ?? '').trim(),
   )
@@ -109,17 +121,18 @@ export function OverrideSecretsForm({
             <div className="flex flex-wrap items-center gap-2">
               <KeyRound className="text-muted-foreground size-4" />
               <h2 className="text-sm font-semibold">
-                {config.schema.title ?? 'Override secrets'}
+                {schema.title ?? 'Override secrets'}
               </h2>
             </div>
             <p className="text-muted-foreground text-xs">
               Writes <code>{config.file}</code> for{' '}
               <code>{config.providerId}</code>. Fields are intentionally blank
-              after save.
+              after save. Existing saved values are hidden; submit again to
+              replace the file.
             </p>
-            {config.schema.description && (
+            {schema.description && (
               <p className="text-muted-foreground text-xs">
-                {config.schema.description}
+                {schema.description}
               </p>
             )}
           </div>
@@ -224,10 +237,40 @@ function SchemaField({
 }
 
 function schemaFields(schema?: JsonSchema) {
-  return Object.entries(schema?.properties ?? {}).map(([name, fieldSchema]) => ({
+  return Object.entries(normalizeSchema(schema).properties ?? {}).map(([name, fieldSchema]) => ({
     name,
     schema: fieldSchema,
   }))
+}
+
+function normalizeConfig(
+  config?: OverrideSecretsFormConfig,
+): OverrideSecretsFormConfig | undefined {
+  if (!config) return undefined
+  return {
+    ...config,
+    schema: normalizeSchema(config.schema),
+  }
+}
+
+function normalizeSchema(schema?: JsonSchema): JsonSchema {
+  if (!schema || typeof schema !== 'object') {
+    return {
+      title: 'Override secrets',
+      type: 'object',
+      required: [],
+      properties: {},
+    }
+  }
+  return {
+    ...schema,
+    type: schema.type ?? 'object',
+    required: Array.isArray(schema.required) ? schema.required : [],
+    properties:
+      schema.properties && typeof schema.properties === 'object'
+        ? schema.properties
+        : {},
+  }
 }
 
 function schemaType(schema: JsonSchema) {
@@ -247,4 +290,35 @@ function coerceValue(value: string, schema: JsonSchema): SecretValue {
   if (type === 'integer') return Number.parseInt(value, 10)
   if (type === 'boolean') return value === 'true'
   return value
+}
+
+function fallbackConfigFromRequiredSecrets(
+  requiredSecrets: RequiredSecret[],
+  providerId?: string,
+): OverrideSecretsFormConfig | undefined {
+  if (requiredSecrets.length === 0 || !providerId) return undefined
+  return {
+    providerId,
+    file: 'override_test_secrets.yaml',
+    schema: {
+      title: 'Override secrets',
+      description:
+        'Generated from required secrets already persisted by the agent.',
+      type: 'object',
+      required: requiredSecrets
+        .filter((secret) => secret.required !== false)
+        .map((secret) => secret.name),
+      properties: Object.fromEntries(
+        requiredSecrets.map((secret) => [
+          secret.name,
+          {
+            type: 'string',
+            title: secret.name,
+            description: secret.description,
+            writeOnly: true,
+          } satisfies JsonSchema,
+        ]),
+      ),
+    },
+  }
 }

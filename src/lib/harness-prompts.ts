@@ -317,9 +317,12 @@ Factory CLI provider sidebar flow:
      When the provider uses an OAuth client flow, recommend client_id,
      client_secret, refresh_token, and any required issuer/tenant/scope values
      as the override secrets schema. The Go e2e tests must exchange those
-     durable credentials for a fresh access token/JWT inside each e2e test run;
-     users should not paste a pre-generated short-lived bearer token as the
-     primary test secret.
+     durable credentials for a fresh access token/JWT inside each e2e test run.
+     The actual CLI/provider parameters should usually be access_token or
+     bearer_token only; do not make the CLI accept client_id, client_secret, or
+     refresh_token unless the provider API requires durable credentials during
+     each normal invocation. Users should not paste a pre-generated short-lived
+     bearer token as the primary test secret.
   4. Implementation: after secrets/testing are confirmed, HARNESS PHASE START
      means write full e2e tests and provider code on the first pass, run
      targeted e2e tests, inspect failures/logs, patch, and iterate until all
@@ -332,6 +335,15 @@ Factory CLI provider rules:
   • Provider code lives under providers/<provider>; tool code lives under
     providers/<provider>/<tool>.
   • Metadata and schemas drive docs and catalog generation.
+  • Provider/tool cli-metadata.yaml files and tool input-schema.yaml /
+    output-schema.yaml files are the source of truth. Do not hard-code names,
+    descriptions, categories, aliases, provider parameters, or JSON schemas in
+    handwritten Go. Handwritten Go should call generated metadata/schema values
+    from metadata_gen.go and focus on registration, validation that cannot be
+    expressed in JSON Schema, API calls, and result shaping.
+  • After editing metadata or schemas, run make generate-metadata before tests,
+    docs, catalog generation, or build. Generated metadata_gen.go files are
+    committed provider artifacts but must never be manually edited.
   • Credentials are not stored. Auth details are provider parameters.
   • OAuth/OIDC-style providers should normally collect durable test auth
     material in secrets.yaml or override_test_secrets.yaml, such as client id,
@@ -340,7 +352,9 @@ Factory CLI provider rules:
     the primary e2e secret shape.
   • For OAuth client flows, use client_id + client_secret + refresh_token in
     the override secrets form and implement token/JWT refresh inside the Go e2e
-    tests for every run.
+    tests for every run. Pass the resulting access_token/bearer_token to the
+    CLI invocation; do not design normal CLI provider parameters around
+    refresh_token, client_id, or client_secret.
   • Do not run destructive real-provider e2e tests without explicit user
     confirmation of account/workspace, cleanup, spend, and rate limits.
   • Do not advance Factory CLI provider work into plan/testing/implementation
@@ -349,7 +363,8 @@ Factory CLI provider rules:
   • E2E tests must exercise real CLI/provider behavior. Never propose
     mock-backed e2e tests for Factory CLI provider work.
   • Required checks are targeted provider/tool tests, make test-unit,
-    make test-e2e, make generate-docs, make generate-catalog, and make build.
+    make test-e2e, make generate-metadata, make generate-docs,
+    make generate-catalog, and make build.
 
 Style:
   • Concise. Two short paragraphs at most per turn.
