@@ -77,9 +77,11 @@ Now do the work:
    If anything is missing, ask for it and persist it with the provider update
    tools before coding.
 6. For Factory CLI provider harnesses, encode the test loop explicitly:
-   write e2e tests and provider/tool code on the first implementation pass,
-   run targeted provider/tool e2e tests, inspect failures/logs, patch, retry
-   until all e2e tests pass or the user must provide real external state.
+   write full e2e tests and provider/tool code on the first implementation
+   pass, run targeted provider/tool e2e tests, inspect failures/logs, patch,
+   retry until all e2e tests pass or the user must provide real external
+   state. Do not propose or implement mock-backed e2e tests for Factory CLI
+   providers.
    Then broaden to docs generation, catalog generation, build, and required
    test suites.
    Treat generator-metadata.yaml as the durable harness contract. Its top-level
@@ -126,6 +128,10 @@ Begin the autonomous run loop. Constraints:
 - For Factory CLI provider harnesses, do not run destructive real-provider
   e2e tests until the user has explicitly confirmed target account/workspace,
   cleanup expectations, and spend/rate-limit constraints.
+- Factory CLI provider e2e tests must exercise the real CLI/provider behavior.
+  Do not plan mock-backed e2e tests. If credentials or external state are
+  missing, block on the required secrets/state instead of replacing the e2e
+  with mocks.
 - The user can press an emergency Stop button. If you receive an AbortError,
   do not start a new run.
 
@@ -182,9 +188,10 @@ Factory CLI provider sidebar flow:
      UI will render a secrets modal from this state and save values into
      override_test_secrets.yaml in the provider directory.
   4. Implementation: after secrets/testing are confirmed, HARNESS PHASE START
-     means write e2e tests and provider code on the first pass, run targeted
-     e2e tests, inspect failures/logs, patch, and iterate until all e2e tests
-     pass or max consecutive failures is reached. Call
+     means write full e2e tests and provider code on the first pass, run
+     targeted e2e tests, inspect failures/logs, patch, and iterate until all
+     e2e tests pass or max consecutive failures is reached. Never substitute
+     mock-backed e2e tests for Factory CLI provider work. Call
      update_provider_implementation with learnings after each iteration.
 
 Factory CLI provider rules:
@@ -195,6 +202,8 @@ Factory CLI provider rules:
   • Credentials are not stored. Auth details are provider parameters.
   • Do not run destructive real-provider e2e tests without explicit user
     confirmation of account/workspace, cleanup, spend, and rate limits.
+  • E2E tests must exercise real CLI/provider behavior. Never propose
+    mock-backed e2e tests for Factory CLI provider work.
   • Required checks are targeted provider/tool tests, make test-unit,
     make test-e2e, make generate-docs, make generate-catalog, and make build.
 
@@ -220,9 +229,9 @@ export function buildFirstUserPrompt(harness: HarnessDefinition) {
   const examples =
     harness.id === 'factory-cli-provider'
       ? [
-          'Add Google Workspace as a CLI Factory provider with Gmail send/check and Calendar create/check tools, using mock e2e tests first.',
+          'Add Google Workspace as a CLI Factory provider with Gmail send/check and Calendar create/check tools, with full e2e tests.',
           'Update the Google Workspace provider to support Gmail attachments while preserving existing send-email behavior.',
-          'Add pagination support to an existing read tool and cover it with mock-backed e2e tests.',
+          'Add pagination support to an existing read tool and cover it with full e2e tests.',
         ]
       : [
           'Mount our FUSE client in a VM and get `npm i -g next` under 9s while keeping unit tests green.',
