@@ -16,6 +16,7 @@ import { DiffsTab } from '#/components/experiment/diffs-tab'
 import { DraftPanel } from '#/components/experiment/draft-panel'
 import { EditableTitle } from '#/components/experiment/editable-title'
 import { RunsTab } from '#/components/experiment/runs-tab'
+import { FactoryCliProviderPanel } from '#/components/factory-cli-provider-panel'
 import { SettingsDialog } from '#/components/settings-dialog'
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -183,6 +184,7 @@ function ExperimentPage() {
     () => exp?.phase === 'runs' || exp?.phase === 'completed',
     [exp?.phase],
   )
+  const isFactoryProviderHarness = exp?.harnessId === 'factory-cli-provider'
 
   if (loadError) {
     return (
@@ -347,16 +349,29 @@ function ExperimentPage() {
             minSize={25}
             className="min-w-0 overflow-hidden"
           >
-            <DraftPanel
-              experimentId={exp.id}
-              draft={draft}
-              agentPending={chat.pending}
-              phase={exp.phase}
-              maxConsecutiveFailures={exp.maxConsecutiveFailures}
-              onGenerateHarness={onGenerateHarness}
-              onStartRuns={onStartRuns}
-              onMaxConsecutiveFailuresChange={onMaxConsecutiveFailuresChange}
-            />
+            {isFactoryProviderHarness ? (
+              <FactoryCliProviderPanel
+                experimentId={exp.id}
+                draft={draft}
+                agentPending={chat.pending}
+                phase={exp.phase}
+                maxConsecutiveFailures={exp.maxConsecutiveFailures}
+                onGenerateHarness={onGenerateHarness}
+                onStartRuns={onStartRuns}
+                onMaxConsecutiveFailuresChange={onMaxConsecutiveFailuresChange}
+              />
+            ) : (
+              <DraftPanel
+                experimentId={exp.id}
+                draft={draft}
+                agentPending={chat.pending}
+                phase={exp.phase}
+                maxConsecutiveFailures={exp.maxConsecutiveFailures}
+                onGenerateHarness={onGenerateHarness}
+                onStartRuns={onStartRuns}
+                onMaxConsecutiveFailuresChange={onMaxConsecutiveFailuresChange}
+              />
+            )}
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : tab === 'runs' ? (

@@ -249,6 +249,7 @@ export const getExperimentDraftFn = createServerFn({ method: 'GET' })
       goal: string
       harnessId?: string
       workBranch?: string
+      providerHarness?: ExperimentDraft['providerHarness']
       infoBlocks: HarnessInfoBlock[]
       requiredSecrets: RequiredSecret[]
       subGoals: SubGoal[]

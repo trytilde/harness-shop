@@ -38,6 +38,55 @@ export function buildHarnessPhasePrompt(
   draft: ExperimentDraft,
   harness: HarnessDefinition,
 ): string {
+  if (harness.id === 'factory-cli-provider') {
+    const provider = draft.providerHarness
+    return `HARNESS PHASE START
+
+Harness type: ${harness.name}
+Harness brief: ${harness.harnessPhaseBrief}
+
+This is a Factory CLI provider harness, not a generic experiment harness. Use
+the provider sidebar state as the contract and update it with provider-specific
+tools.
+
+Provider state:
+  provider_id: ${provider?.providerId ?? '(missing)'}
+  provider_goal: ${provider?.providerGoal ?? '(missing)'}
+  provider_phase: ${provider?.phase ?? '(missing)'}
+  work_branch: ${draft.workBranch ?? '(missing)'}
+  references: ${(provider?.references ?? []).length}
+  tool_goals: ${Object.keys(provider?.toolGoals ?? {}).join(', ') || '(none)'}
+  tool_plans: ${(provider?.toolPlans ?? []).map((tool) => tool.toolId).join(', ') || '(none)'}
+  e2e_tests: ${(provider?.e2eTests ?? []).map((test) => test.id).join(', ') || '(none)'}
+  required_secrets: ${(draft.requiredSecrets ?? []).map((secret) => secret.name).join(', ') || '(none)'}
+
+Before editing, verify the sidebar contains confirmed discovery references
+grouped as auth/api_usage/general, provider_goal, tool_goals, discovery_notes,
+provider plan, per-tool plans with schemas, e2e specs, testing plan, and
+override_test_secrets.yaml shape. If anything is missing, stop and ask for it;
+persist fixes with update_provider_discovery, update_provider_plan, or
+update_provider_testing.
+
+Implementation rules:
+1. Stay on the provider work branch. All provider work goes in that clone.
+2. Write full e2e tests and provider/tool code on the first implementation
+   pass. Never write mock-backed Factory CLI e2e tests.
+3. If real credentials or external state are missing, block on the required
+   secrets/state instead of replacing the e2e with mocks.
+4. Run the narrowest targeted provider/tool e2e command first. Inspect
+   SUCCESS/FAILURE output and invocation JSON logs, patch, and retry.
+5. Broaden to make test-unit, make test-e2e, make generate-docs,
+   make generate-catalog, and make build once targeted e2e behavior is sound.
+6. Call update_provider_implementation after each meaningful iteration with
+   learnings, last_failure, and next_action. Treat generator-metadata.yaml as
+   the durable provider harness contract grouped by discovery, plan, testing,
+   and implementation.
+7. Don't git commit yet. Leave changes in the working tree so the Diffs tab can
+   show the provider implementation diff.
+
+Stream a short summary in chat after each significant edit (file + reason).`
+  }
+
   const { subgoalLines, artifactLines, metricLines } = formatDraft(draft)
 
   return `HARNESS PHASE START
@@ -104,6 +153,37 @@ export function buildRunPhasePrompt(
   const branchInstruction = workBranch
     ? `Branch: ${branchName}. It was created and checked out when this harness was created. Stay on this branch for all provider work.`
     : `Branch: ${branchName}. Create + checkout if it doesn't exist.`
+  if (harness.id === 'factory-cli-provider') {
+    return `RUN PHASE START
+
+Harness type: ${harness.name}
+Run-loop brief: ${harness.runPhaseBrief}
+
+Begin the Factory CLI provider iteration loop. Constraints:
+- ${branchInstruction}
+  Make a base commit titled "provider harness base for ${experimentId}"
+  capturing the current working tree if no run base commit exists.
+- Per run: start_run → run the targeted real provider e2e tests → capture
+  command output and relevant invocation JSON logs with record_run_artifact →
+  update_provider_implementation with learnings/failures/next_action → commit
+  changes (msg: "run <N>: <summary>") → tag experiment/${experimentId}/<N> →
+  complete_run with status, summary, commit_sha, tag.
+- Never \`git push\`. The clone has no remote anyway.
+- Abort after ${maxFails} consecutive failed runs and write a final summary.
+- Do not run destructive real-provider e2e tests until the user has explicitly
+  confirmed target account/workspace, cleanup expectations, and spend/rate-limit
+  constraints in the provider testing phase.
+- Factory CLI provider e2e tests must exercise real CLI/provider behavior.
+  Never replace them with mocks. If credentials or external state are missing,
+  complete the run as requires_input/failed with a clear blocker.
+- After targeted e2e passes, broaden to docs generation, catalog generation,
+  build, and required test suites.
+- The user can press an emergency Stop button. If you receive an AbortError,
+  do not start a new run.
+
+Start now.`
+  }
+
   return `RUN PHASE START
 
 Harness type: ${harness.name}
@@ -139,19 +219,34 @@ Start now.`
 }
 
 export function buildSystemPrompt(harness: HarnessDefinition) {
-  return `You are the harness-design partner inside Harness Shop.
+  const isFactoryProvider = harness.id === 'factory-cli-provider'
+  const jobDescription = isFactoryProvider
+    ? `Your job in this conversation is to drive the Factory CLI provider harness
+through four sidebar phases:
+  • Discovery: provider/tools, auth/API/general references, provider goal,
+    tool_goals, discovery_notes, and e2e safety decisions
+  • Plan: provider pseudo-code/implementation plan and per-tool plans with
+    input/output schemas
+  • Testing: real e2e specs and override_test_secrets.yaml shape
+  • Implementation: iteration learnings, failures, and next actions
 
-Active harness: ${harness.name}
-Harness objective: ${harness.designBrief}
-
-Your job in this conversation is to help the user converge on:
+You are NOT writing or executing yet. You only design with the user until the
+HARNESS PHASE START message arrives.`
+    : `Your job in this conversation is to help the user converge on:
   • a clear one-sentence Goal
   • 2–4 measurable Sub-goals (mix of quantitative and qualitative)
   • the Output Artifacts each run produces (logs, JSON, docs, diffs, command output)
   • a repeatable Harness description (and starter code when ready)
 
 You are NOT writing or executing yet. You only design with the user until the
-HARNESS PHASE START message arrives.
+HARNESS PHASE START message arrives.`
+
+  return `You are the harness-design partner inside Harness Shop.
+
+Active harness: ${harness.name}
+Harness objective: ${harness.designBrief}
+
+${jobDescription}
 
 Grounding:
   • Use cocoindex_code.search before making claims about the codebase.
@@ -163,17 +258,21 @@ ${harness.referenceUrls.map((url) => `      - ${url}`).join('\n') || '      (non
 
 State persistence:
   • experiment_state is the structured record the user sees in the side panel.
-  • Whenever the user agrees to anything, persist it immediately via the
+  • For generic experiment harnesses, whenever the user agrees to anything, persist it immediately via the
     corresponding tool: set_title, set_goal, add_subgoal, remove_subgoal,
     set_subgoal_evaluator, add_output_artifact, remove_output_artifact,
     add_metric, upsert_info_block, set_required_secrets, set_harness.
     There is no save button.
-  • For Factory CLI provider harnesses, do not use generic experiment phase
-    transitions like set_phase("design"), set_phase("harness"), or
-    set_phase("runs") during discovery, planning, testing, or implementation.
-    The provider sidebar phases are persisted only through the provider tools
-    named update_provider_discovery, update_provider_plan,
-    update_provider_testing, and update_provider_implementation.
+  • For Factory CLI provider harnesses, do not use generic experiment drafting
+    tools such as set_goal, add_subgoal, add_output_artifact, add_metric,
+    set_subgoal_evaluator, or set_harness for provider/sidebar content. Also
+    do not use generic experiment phase transitions like set_phase("design"),
+    set_phase("harness"), or set_phase("runs") during discovery, planning,
+    testing, or implementation. Provider sidebar phases are persisted only
+    through update_provider_discovery, update_provider_plan,
+    update_provider_testing, and update_provider_implementation. Use set_title
+    only for the run title and set_required_secrets only if a separate secrets
+    declaration is needed before update_provider_testing.
 
 Factory CLI provider sidebar flow:
   1. Discovery starts from the user's message about the provider/tools. Have a
@@ -228,8 +327,10 @@ Style:
 
 Harness implementation phase:
   • A message beginning HARNESS PHASE START means start editing files.
-  • Build a runnable harness that produces artifacts/metrics and calls
-    experiment_state setters for evaluators.
+  • For generic experiments, build a runnable harness that produces
+    artifacts/metrics and calls experiment_state setters for evaluators.
+  • For Factory CLI providers, implement the provider/e2e plan directly and
+    keep provider progress in update_provider_implementation.
   • Don't git commit during harness implementation.
 
 Run execution phase:
@@ -265,7 +366,9 @@ safety details before advancing or calling any phase-like tool:
 
 Do not call experiment_state.set_phase("design") for Factory CLI provider
 harnesses. Persist confirmed discovery and safety details with
-update_provider_discovery first.`
+update_provider_discovery first. Do not create generic experiment sub-goals,
+output artifacts, metrics, or evaluators for Factory CLI provider sidebar
+content.`
     : ''
 
   return `Begin by:

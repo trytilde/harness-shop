@@ -137,6 +137,16 @@ export type ProviderToolPlan = {
   outputSchema?: string
 }
 
+export type ProviderE2ETest = {
+  id: string
+  description: string
+  command: string
+  mode: 'dry_run' | 'real_account'
+  assertions: string[]
+  cleanup?: string
+  destructiveRisk: 'none' | 'low' | 'medium' | 'high'
+}
+
 export type ProviderHarnessDraft = {
   phase: ProviderHarnessPhase
   providerId?: string
@@ -147,8 +157,11 @@ export type ProviderHarnessDraft = {
   providerPlan?: string
   toolPlans?: ProviderToolPlan[]
   e2eSecretsShape?: Record<string, string>
+  e2eTests?: ProviderE2ETest[]
   testingPlan?: string
   implementationNotes?: string[]
+  lastFailure?: string
+  nextAction?: string
 }
 
 export type HarnessInfoBlock = {

@@ -104,6 +104,7 @@ function upsertProviderHarness(draft, patch) {
     discoveryNotes: [],
     toolGoals: {},
     toolPlans: [],
+    e2eTests: [],
     implementationNotes: [],
     ...(draft.providerHarness ?? {}),
     ...patch,
@@ -347,7 +348,7 @@ server.registerTool(
           id: z.string().min(1),
           description: z.string().min(8),
           command: z.string().min(1),
-          mode: z.enum(['mock', 'dry_run', 'real_account']),
+          mode: z.enum(['dry_run', 'real_account']),
           assertions: z.array(z.string()).default([]),
           cleanup: z.string().optional(),
           destructive_risk: z.enum(['none', 'low', 'medium', 'high']),
@@ -362,6 +363,15 @@ server.registerTool(
       phase: 'testing',
       providerId: provider_id,
       testingPlan: testing_plan,
+      e2eTests: e2e_tests.map((test) => ({
+        id: test.id,
+        description: test.description,
+        command: test.command,
+        mode: test.mode,
+        assertions: test.assertions,
+        cleanup: test.cleanup,
+        destructiveRisk: test.destructive_risk,
+      })),
       e2eSecretsShape: secrets_shape,
     })
     draft.requiredSecrets = Object.entries(secrets_shape).map(
@@ -398,6 +408,8 @@ server.registerTool(
       phase: 'implementation',
       providerId: provider_id,
       implementationNotes: notes,
+      lastFailure,
+      nextAction,
     })
     await saveDraft(draft)
     saveGeneratorMetadata(provider_id, {

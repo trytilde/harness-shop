@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { KeyRound, Loader2 } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert'
@@ -27,21 +27,29 @@ import { saveProviderSecretsFn } from '#/server/api/provider-secrets'
 export function ProviderSecretsDialog({
   experimentId,
   requiredSecrets,
+  providerId: defaultProviderId,
+  file: defaultFile = 'override_test_secrets.yaml',
   disabled,
 }: {
   experimentId: string
   requiredSecrets: RequiredSecret[]
+  providerId?: string
+  file?: 'test_secrets.yaml' | 'override_test_secrets.yaml'
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [providerId, setProviderId] = useState('')
+  const [providerId, setProviderId] = useState(defaultProviderId ?? '')
   const [file, setFile] = useState<'test_secrets.yaml' | 'override_test_secrets.yaml'>(
-    'override_test_secrets.yaml',
+    defaultFile,
   )
   const [values, setValues] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedPath, setSavedPath] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (defaultProviderId && !providerId) setProviderId(defaultProviderId)
+  }, [defaultProviderId, providerId])
 
   const missing = useMemo(
     () =>
