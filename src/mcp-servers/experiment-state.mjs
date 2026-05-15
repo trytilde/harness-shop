@@ -495,8 +495,8 @@ server.registerTool(
       phase: 'implementation',
       providerId: provider_id,
       implementationNotes: notes,
-      lastFailure,
-      nextAction,
+      lastFailure: last_failure,
+      nextAction: next_action,
     })
     await saveDraft(draft)
     saveGeneratorMetadata(provider_id, {
