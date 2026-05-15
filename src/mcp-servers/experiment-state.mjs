@@ -257,6 +257,12 @@ server.registerTool(
       tool_goals: z.record(z.string(), z.string()),
       references: z.array(referenceSchema),
       discovery_notes: z.array(z.string()).default([]),
+      title: z
+        .string()
+        .min(3)
+        .max(120)
+        .optional()
+        .describe('Optional dashboard title for this provider harness run.'),
     },
   },
   async ({
@@ -265,8 +271,11 @@ server.registerTool(
     tool_goals,
     references,
     discovery_notes,
+    title,
   }) => {
     const draft = await loadDraft()
+    const runTitle = title?.trim() || `Factory provider: ${provider_id}`
+    draft.title = runTitle
     upsertProviderHarness(draft, {
       phase: 'discovery',
       providerId: provider_id,
@@ -278,8 +287,13 @@ server.registerTool(
     await saveDraft(draft)
     await client.execute({
       sql:
-        'UPDATE experiments SET provider_name = ?, tools_csv = ?, updated_at = unixepoch() WHERE id = ?',
-      args: [provider_id, Object.keys(tool_goals).join(', '), EXPERIMENT_ID],
+        'UPDATE experiments SET title = ?, provider_name = ?, tools_csv = ?, updated_at = unixepoch() WHERE id = ?',
+      args: [
+        runTitle,
+        provider_id,
+        Object.keys(tool_goals).join(', '),
+        EXPERIMENT_ID,
+      ],
     })
     saveGeneratorMetadata(provider_id, {
       discovery: {

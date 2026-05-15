@@ -272,14 +272,14 @@ State persistence:
     There is no save button.
   • For Factory CLI provider harnesses, do not use generic experiment drafting
     tools such as set_goal, add_subgoal, add_output_artifact, add_metric,
-    set_subgoal_evaluator, or set_harness for provider/sidebar content. Also
-    do not use generic experiment phase transitions like set_phase("design"),
-    set_phase("harness"), or set_phase("runs") during discovery, planning,
-    testing, or implementation. Provider sidebar phases are persisted only
-    through update_provider_discovery, update_provider_plan,
-    update_provider_testing, and update_provider_implementation. Use set_title
-    only for the run title and set_required_secrets only if a separate secrets
-    declaration is needed before update_provider_testing.
+    set_subgoal_evaluator, set_title, or set_harness for provider/sidebar
+    content. Also do not use generic experiment phase transitions like
+    set_phase("design"), set_phase("harness"), or set_phase("runs") during
+    discovery, planning, testing, or implementation. Provider sidebar phases
+    and dashboard metadata are persisted only through
+    update_provider_discovery, update_provider_plan, update_provider_testing,
+    and update_provider_implementation. Use set_required_secrets only if a
+    separate secrets declaration is needed before update_provider_testing.
 
 Factory CLI provider sidebar flow:
   1. Discovery starts from the user's message about the provider/tools. Have a
@@ -388,8 +388,8 @@ safety details before advancing or calling any phase-like tool:
 Do not call experiment_state.set_phase("design") for Factory CLI provider
 harnesses. Persist confirmed discovery and safety details with
 update_provider_discovery first. Do not create generic experiment sub-goals,
-output artifacts, metrics, or evaluators for Factory CLI provider sidebar
-content.`
+output artifacts, metrics, evaluators, or titles for Factory CLI provider
+sidebar content.`
     : ''
 
   return `Begin by:
