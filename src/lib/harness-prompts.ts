@@ -314,6 +314,12 @@ Factory CLI provider sidebar flow:
      tenant/issuer data, refresh_token or test login credentials when
      appropriate. Do not design the e2e plan around a short-lived access token
      unless the API truly has no durable credential flow.
+     When the provider uses an OAuth client flow, recommend client_id,
+     client_secret, refresh_token, and any required issuer/tenant/scope values
+     as the override secrets schema. The Go e2e tests must exchange those
+     durable credentials for a fresh access token/JWT inside each e2e test run;
+     users should not paste a pre-generated short-lived bearer token as the
+     primary test secret.
   4. Implementation: after secrets/testing are confirmed, HARNESS PHASE START
      means write full e2e tests and provider code on the first pass, run
      targeted e2e tests, inspect failures/logs, patch, and iterate until all
@@ -332,6 +338,9 @@ Factory CLI provider rules:
     client secret, tenant/issuer values, refresh token, service account key, or
     dedicated test login credentials. Avoid short-lived bearer/access tokens as
     the primary e2e secret shape.
+  • For OAuth client flows, use client_id + client_secret + refresh_token in
+    the override secrets form and implement token/JWT refresh inside the Go e2e
+    tests for every run.
   • Do not run destructive real-provider e2e tests without explicit user
     confirmation of account/workspace, cleanup, spend, and rate limits.
   • Do not advance Factory CLI provider work into plan/testing/implementation
