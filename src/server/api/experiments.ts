@@ -226,6 +226,7 @@ export const getExperimentByIdFn = createServerFn({ method: 'GET' })
       phase: ExperimentPhase
       maxConsecutiveFailures: number | null
       harnessId: string
+      clonePath: string | null
     } | null> => {
       const db = await getDb()
       const row = await db.query.experiments.findFirst({
@@ -244,6 +245,11 @@ export const getExperimentByIdFn = createServerFn({ method: 'GET' })
         phase: (row.phase ?? 'design') as ExperimentPhase,
         maxConsecutiveFailures: row.maxConsecutiveFailures ?? null,
         harnessId: row.harnessId ?? DEFAULT_HARNESS_ID,
+        clonePath: row.indexId
+          ? ((await db.query.indexedCodebases.findFirst({
+              where: eq(schema.indexedCodebases.id, row.indexId),
+            }))?.clonePath ?? null)
+          : null,
       }
     },
   )

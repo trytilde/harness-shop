@@ -6,6 +6,7 @@ import {
   FileDiff,
   GitBranch,
   Github,
+  HardDrive,
   Loader2,
   MessageSquareText,
   KeyRound,
@@ -60,6 +61,7 @@ type ExperimentMeta = {
   phase: ExperimentPhase
   maxConsecutiveFailures: number | null
   harnessId: string
+  clonePath: string | null
 }
 
 function ExperimentPage() {
@@ -93,6 +95,7 @@ function ExperimentPage() {
           phase: row.phase,
           maxConsecutiveFailures: row.maxConsecutiveFailures,
           harnessId: row.harnessId,
+          clonePath: row.clonePath,
         })
       })
       .catch((e: Error) => {
@@ -157,7 +160,8 @@ function ExperimentPage() {
             prev.phase === row.phase &&
             prev.maxConsecutiveFailures === row.maxConsecutiveFailures &&
             prev.title === row.title &&
-            prev.harnessId === row.harnessId
+            prev.harnessId === row.harnessId &&
+            prev.clonePath === row.clonePath
           ) {
             return prev
           }
@@ -167,6 +171,7 @@ function ExperimentPage() {
             maxConsecutiveFailures: row.maxConsecutiveFailures,
             title: row.title,
             harnessId: row.harnessId,
+            clonePath: row.clonePath,
           }
         })
       }
@@ -308,6 +313,15 @@ function ExperimentPage() {
               <span className="text-muted-foreground/60">→</span>
               <GitBranch className="size-3" />
               <span className="font-mono">{draft.workBranch}</span>
+            </>
+          )}
+          {exp.clonePath && (
+            <>
+              <span className="text-muted-foreground/60">·</span>
+              <HardDrive className="size-3" />
+              <span className="max-w-[52ch] truncate font-mono" title={exp.clonePath}>
+                {exp.clonePath}
+              </span>
             </>
           )}
         </div>
