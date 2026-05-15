@@ -26,13 +26,20 @@ import { checkEmbeddingsAccessFn } from '#/server/api/embeddings'
 import { createExperimentForRefFn } from '#/server/api/experiments'
 import { ensureIndexedFn } from '#/server/api/indexing'
 import type { Branch, Repo } from '#/lib/types'
+import {
+  DEFAULT_HARNESS_ID,
+  getHarnessDefinition,
+  type HarnessId,
+} from '#/lib/harness-definitions'
 
 export function CreateExperimentDialog({
   trigger,
   disabled,
+  harnessId = DEFAULT_HARNESS_ID,
 }: {
   trigger?: React.ReactNode
   disabled?: boolean
+  harnessId?: HarnessId
 }) {
   const [open, setOpen] = useState(false)
   const [repo, setRepo] = useState<Repo | null>(null)
@@ -51,6 +58,7 @@ export function CreateExperimentDialog({
   } | null>(null)
   const [openaiKeyOpen, setOpenaiKeyOpen] = useState(false)
   const navigate = useNavigate()
+  const harness = getHarnessDefinition(harnessId)
 
   useEffect(() => {
     if (!open) return
@@ -100,6 +108,7 @@ export function CreateExperimentDialog({
         name: target.repo.name,
         ref: target.branch.name,
         indexId,
+        harnessId,
       },
     })
     setOpen(false)
@@ -162,17 +171,21 @@ export function CreateExperimentDialog({
           {trigger ?? (
             <Button disabled={disabled}>
               <Plus className="size-4" />
-              Create experiment
+              <Plus className="size-4" />
+              New run
             </Button>
           )}
         </DialogTrigger>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New experiment</DialogTitle>
+            <DialogTitle>New {harness.shortName.toLowerCase()} run</DialogTitle>
             <DialogDescription>
-              Pick a repository and a branch. We'll clone it and build a
-              semantic index (re-used across experiments at the same commit)
-              before opening the goal-design chat.
+              Pick a repository and source branch. We'll clone it, build a
+              semantic index, and open the {harness.shortName.toLowerCase()}{' '}
+              discovery chat.
+              {harnessId.startsWith('factory-cli-')
+                ? ' A local provider-harness branch is created automatically in the clone.'
+                : ''}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
@@ -213,7 +226,7 @@ export function CreateExperimentDialog({
             </Button>
             <Button onClick={onCreate} disabled={!repo || !branch || creating}>
               {creating && <Loader2 className="size-4 animate-spin" />}
-              Create experiment
+              New run
             </Button>
           </DialogFooter>
         </DialogContent>

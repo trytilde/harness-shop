@@ -15,7 +15,7 @@ export function TopBar() {
         <div className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
           <Beaker className="size-4" />
         </div>
-        <span className="text-sm font-semibold">Harness</span>
+        <span className="text-sm font-semibold">Harness Shop</span>
       </Link>
 
       <div className="ml-auto flex items-center gap-1">

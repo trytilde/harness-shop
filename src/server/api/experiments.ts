@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { desc, eq } from 'drizzle-orm'
+import simpleGit from 'simple-git'
 import { z } from 'zod'
 
 import { getDb, schema } from '#/server/db/client'
@@ -9,10 +10,13 @@ import type {
   ExperimentPhase,
   ExperimentRef,
   ExperimentStatus,
+  HarnessInfoBlock,
   Metric,
   OutputArtifact,
+  RequiredSecret,
   SubGoal,
 } from '#/lib/types'
+import { DEFAULT_HARNESS_ID, type HarnessId } from '#/lib/harness-definitions'
 
 export const listExperimentsFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<Experiment[]> => {
@@ -24,6 +28,20 @@ export const listExperimentsFn = createServerFn({ method: 'GET' }).handler(
     return rows.map(toExperiment)
   },
 )
+
+const harnessListSchema = z.object({ harnessId: z.string().min(1) })
+
+export const listHarnessRunsFn = createServerFn({ method: 'GET' })
+  .inputValidator((d: unknown) => harnessListSchema.parse(d))
+  .handler(async ({ data }): Promise<Experiment[]> => {
+    const db = await getDb()
+    const rows = await db
+      .select()
+      .from(schema.experiments)
+      .where(eq(schema.experiments.harnessId, data.harnessId))
+      .orderBy(desc(schema.experiments.updatedAt))
+    return rows.map(toExperiment)
+  })
 
 function toExperiment(row: typeof schema.experiments.$inferSelect): Experiment {
   // The draft_json mirrors title/goal, so fall back to it for older rows
@@ -44,6 +62,14 @@ function toExperiment(row: typeof schema.experiments.$inferSelect): Experiment {
     title: row.title ?? draft.title ?? '(untitled)',
     goal: row.goal ?? draft.goal ?? '',
     status: row.status as ExperimentStatus,
+    harnessId: (row.harnessId ?? DEFAULT_HARNESS_ID) as HarnessId,
+    providerName: row.providerName ?? undefined,
+    tools: row.toolsCsv
+      ? row.toolsCsv
+          .split(',')
+          .map((tool) => tool.trim())
+          .filter(Boolean)
+      : undefined,
     updatedAt: row.updatedAt.toISOString(),
   }
 }
@@ -75,6 +101,7 @@ const upsertSchema = z.object({
   name: z.string().min(1),
   ref: z.string().min(1),
   indexId: z.string().min(1),
+  harnessId: z.string().min(1).default(DEFAULT_HARNESS_ID),
 })
 
 /**
@@ -88,6 +115,22 @@ export const createExperimentForRefFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<{ experimentId: string }> => {
     const db = await getDb()
     const id = `exp_${crypto.randomUUID().slice(0, 12)}`
+    const workBranch = data.harnessId.startsWith('factory-cli-')
+      ? `provider-harness/${id.replace(/^exp_/, '')}`
+      : undefined
+    if (data.harnessId.startsWith('factory-cli-')) {
+      const indexed = await db.query.indexedCodebases.findFirst({
+        where: eq(schema.indexedCodebases.id, data.indexId),
+      })
+      if (!indexed?.clonePath) {
+        throw new Error('Indexed clone is not ready.')
+      }
+      await simpleGit(indexed.clonePath).checkoutLocalBranch(workBranch!).catch(
+        async () => {
+          await simpleGit(indexed.clonePath).checkout(workBranch!)
+        },
+      )
+    }
     await db.insert(schema.experiments).values({
       id,
       repoOrg: data.org,
@@ -95,13 +138,30 @@ export const createExperimentForRefFn = createServerFn({ method: 'POST' })
       refKind: 'branch',
       refValue: data.ref,
       indexId: data.indexId,
+      harnessId: data.harnessId,
       status: 'draft',
       draftJson: JSON.stringify({
+        harnessId: data.harnessId,
+        workBranch,
         goal: '',
+        infoBlocks: [],
+        requiredSecrets: [],
         subGoals: [],
         artifacts: [],
+        metrics: [],
         harness: { description: '' },
-      } satisfies Pick<ExperimentDraft, 'goal' | 'subGoals' | 'artifacts' | 'harness'>),
+      } satisfies Pick<
+        ExperimentDraft,
+        | 'harnessId'
+        | 'workBranch'
+        | 'goal'
+        | 'infoBlocks'
+        | 'requiredSecrets'
+        | 'subGoals'
+        | 'artifacts'
+        | 'metrics'
+        | 'harness'
+      >),
     })
     return { experimentId: id }
   })
@@ -156,6 +216,7 @@ export const getExperimentByIdFn = createServerFn({ method: 'GET' })
       status: ExperimentStatus
       phase: ExperimentPhase
       maxConsecutiveFailures: number | null
+      harnessId: string
     } | null> => {
       const db = await getDb()
       const row = await db.query.experiments.findFirst({
@@ -173,6 +234,7 @@ export const getExperimentByIdFn = createServerFn({ method: 'GET' })
         status: row.status as ExperimentStatus,
         phase: (row.phase ?? 'design') as ExperimentPhase,
         maxConsecutiveFailures: row.maxConsecutiveFailures ?? null,
+        harnessId: row.harnessId ?? DEFAULT_HARNESS_ID,
       }
     },
   )
@@ -185,6 +247,10 @@ export const getExperimentDraftFn = createServerFn({ method: 'GET' })
     }): Promise<{
       experimentId: string
       goal: string
+      harnessId?: string
+      workBranch?: string
+      infoBlocks: HarnessInfoBlock[]
+      requiredSecrets: RequiredSecret[]
       subGoals: SubGoal[]
       artifacts: OutputArtifact[]
       metrics: Metric[]
@@ -197,7 +263,12 @@ export const getExperimentDraftFn = createServerFn({ method: 'GET' })
       })
       if (!row) return null
       const empty = {
+        harnessId: row.harnessId ?? DEFAULT_HARNESS_ID,
+        workBranch: undefined as string | undefined,
+        providerHarness: undefined as ExperimentDraft['providerHarness'],
         goal: '',
+        infoBlocks: [] as HarnessInfoBlock[],
+        requiredSecrets: [] as RequiredSecret[],
         subGoals: [] as SubGoal[],
         artifacts: [] as OutputArtifact[],
         metrics: [] as Metric[],

@@ -7,14 +7,15 @@
 //
 // stdio MCP server, single tenant per experiment_id (passed via env).
 
-import { mkdirSync } from 'node:fs'
-import { dirname, isAbsolute, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 
 import { createClient } from '@libsql/client'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
+import YAML from 'yaml'
 
 const EXPERIMENT_ID = process.env.HARNESS_EXPERIMENT_ID
 if (!EXPERIMENT_ID) {
@@ -63,10 +64,49 @@ async function loadDraft() {
 function emptyDraft() {
   return {
     goal: '',
+    providerHarness: undefined,
+    infoBlocks: [],
+    requiredSecrets: [],
     subGoals: [],
     artifacts: [],
     metrics: [],
     harness: { description: '', code: undefined },
+  }
+}
+
+function metadataPath(providerId) {
+  const clonePath = process.env.HARNESS_CLONE_PATH
+  if (!clonePath) throw new Error('HARNESS_CLONE_PATH is required')
+  return join(clonePath, 'providers', providerId, 'generator-metadata.yaml')
+}
+
+function loadGeneratorMetadata(providerId) {
+  const path = metadataPath(providerId)
+  if (!existsSync(path)) return {}
+  try {
+    return YAML.parse(readFileSync(path, 'utf8')) ?? {}
+  } catch {
+    return {}
+  }
+}
+
+function saveGeneratorMetadata(providerId, patch) {
+  const path = metadataPath(providerId)
+  mkdirSync(dirname(path), { recursive: true })
+  const next = { ...loadGeneratorMetadata(providerId), ...patch }
+  writeFileSync(path, YAML.stringify(next), { mode: 0o644 })
+}
+
+function upsertProviderHarness(draft, patch) {
+  draft.providerHarness = {
+    phase: 'discovery',
+    references: [],
+    discoveryNotes: [],
+    toolGoals: {},
+    toolPlans: [],
+    implementationNotes: [],
+    ...(draft.providerHarness ?? {}),
+    ...patch,
   }
 }
 
@@ -122,6 +162,252 @@ server.registerTool(
       args: [trimmed, EXPERIMENT_ID],
     })
     return ok(`Title set.`, { title: trimmed })
+  },
+)
+
+// ---------- Harness information blocks ----------
+
+server.registerTool(
+  'upsert_info_block',
+  {
+    title: 'Create or update a sidebar information block',
+    description:
+      'Persist structured discovery or spec information for the sidebar. Use this for provider facts, auth model, proposed tools, docs/examples findings, e2e questions, e2e specs, and provider/tool specs.',
+    inputSchema: {
+      id: z.string().min(1),
+      title: z.string().min(2),
+      items: z.array(
+        z.object({
+          label: z.string().min(1),
+          value: z.string().min(1),
+        }),
+      ),
+    },
+  },
+  async ({ id, title, items }) => {
+    const draft = await loadDraft()
+    if (!Array.isArray(draft.infoBlocks)) draft.infoBlocks = []
+    const next = {
+      id,
+      title: title.trim(),
+      items: items.map((item) => ({
+        label: item.label.trim(),
+        value: item.value.trim(),
+      })),
+    }
+    const idx = draft.infoBlocks.findIndex((block) => block.id === id)
+    if (idx >= 0) draft.infoBlocks[idx] = next
+    else draft.infoBlocks.push(next)
+    await saveDraft(draft)
+    return ok(`Info block saved: ${id}`, { id })
+  },
+)
+
+server.registerTool(
+  'set_required_secrets',
+  {
+    title: 'Set provider e2e secret fields',
+    description:
+      'Declare the secret fields the UI should collect before writing provider test_secrets.yaml or override_test_secrets.yaml.',
+    inputSchema: {
+      secrets: z.array(
+        z.object({
+          name: z.string().min(1),
+          description: z.string().min(1),
+          required: z.boolean().default(true),
+        }),
+      ),
+    },
+  },
+  async ({ secrets }) => {
+    const draft = await loadDraft()
+    draft.requiredSecrets = secrets.map((secret) => ({
+      name: secret.name.trim(),
+      description: secret.description.trim(),
+      required: secret.required ?? true,
+    }))
+    await saveDraft(draft)
+    return ok(`Required secrets updated.`, {
+      requiredSecrets: draft.requiredSecrets,
+    })
+  },
+)
+
+// ---------- Factory CLI provider harness state ----------
+
+const referenceSchema = z.object({
+  url: z.string().url(),
+  title: z.string().optional(),
+  kind: z.enum(['auth', 'api_usage', 'general']),
+  source: z.enum(['user', 'external']),
+  summary: z.string().optional(),
+  confirmed: z.boolean().default(false),
+})
+
+server.registerTool(
+  'update_provider_discovery',
+  {
+    title: 'Update Factory CLI provider discovery artifacts',
+    description:
+      'Persist discovery phase artifacts to the sidebar and providers/<provider>/generator-metadata.yaml. Use after user confirms references and goals.',
+    inputSchema: {
+      provider_id: z.string().min(1),
+      provider_goal: z.string().min(8),
+      tool_goals: z.record(z.string(), z.string()),
+      references: z.array(referenceSchema),
+      discovery_notes: z.array(z.string()).default([]),
+    },
+  },
+  async ({
+    provider_id,
+    provider_goal,
+    tool_goals,
+    references,
+    discovery_notes,
+  }) => {
+    const draft = await loadDraft()
+    upsertProviderHarness(draft, {
+      phase: 'discovery',
+      providerId: provider_id,
+      providerGoal: provider_goal,
+      toolGoals: tool_goals,
+      references,
+      discoveryNotes: discovery_notes,
+    })
+    await saveDraft(draft)
+    await client.execute({
+      sql:
+        'UPDATE experiments SET provider_name = ?, tools_csv = ?, updated_at = unixepoch() WHERE id = ?',
+      args: [provider_id, Object.keys(tool_goals).join(', '), EXPERIMENT_ID],
+    })
+    saveGeneratorMetadata(provider_id, {
+      discovery: {
+        provider_goal,
+        tool_goals,
+        references,
+        discovery_notes,
+      },
+    })
+    return ok(`Provider discovery updated.`, { provider_id })
+  },
+)
+
+server.registerTool(
+  'update_provider_plan',
+  {
+    title: 'Update Factory CLI provider implementation plan',
+    description:
+      'Persist the provider pseudo-code/implementation plan and optional tool plans to sidebar and generator-metadata.yaml.',
+    inputSchema: {
+      provider_id: z.string().min(1),
+      provider_plan: z.string().min(20),
+      tool_plans: z
+        .array(
+          z.object({
+            toolId: z.string().min(1),
+            goal: z.string().min(4),
+            implementation: z.string().optional(),
+            inputSchema: z.string().optional(),
+            outputSchema: z.string().optional(),
+          }),
+        )
+        .default([]),
+    },
+  },
+  async ({ provider_id, provider_plan, tool_plans }) => {
+    const draft = await loadDraft()
+    upsertProviderHarness(draft, {
+      phase: 'plan',
+      providerId: provider_id,
+      providerPlan: provider_plan,
+      toolPlans: tool_plans,
+    })
+    await saveDraft(draft)
+    saveGeneratorMetadata(provider_id, {
+      plan: {
+        provider_plan,
+        tool_plans,
+      },
+    })
+    return ok(`Provider plan updated.`, { provider_id })
+  },
+)
+
+server.registerTool(
+  'update_provider_testing',
+  {
+    title: 'Update Factory CLI provider testing plan',
+    description:
+      'Persist e2e test specs, testing plan, and override_test_secrets.yaml shape to sidebar and generator-metadata.yaml.',
+    inputSchema: {
+      provider_id: z.string().min(1),
+      testing_plan: z.string().min(10),
+      e2e_tests: z.array(
+        z.object({
+          id: z.string().min(1),
+          description: z.string().min(8),
+          command: z.string().min(1),
+          mode: z.enum(['mock', 'dry_run', 'real_account']),
+          assertions: z.array(z.string()).default([]),
+          cleanup: z.string().optional(),
+          destructive_risk: z.enum(['none', 'low', 'medium', 'high']),
+        }),
+      ),
+      secrets_shape: z.record(z.string(), z.string()).default({}),
+    },
+  },
+  async ({ provider_id, testing_plan, e2e_tests, secrets_shape }) => {
+    const draft = await loadDraft()
+    upsertProviderHarness(draft, {
+      phase: 'testing',
+      providerId: provider_id,
+      testingPlan: testing_plan,
+      e2eSecretsShape: secrets_shape,
+    })
+    draft.requiredSecrets = Object.entries(secrets_shape).map(
+      ([name, description]) => ({ name, description, required: true }),
+    )
+    await saveDraft(draft)
+    saveGeneratorMetadata(provider_id, {
+      testing: {
+        testing_plan,
+        e2e_tests,
+        override_test_secrets_shape: secrets_shape,
+      },
+    })
+    return ok(`Provider testing plan updated.`, { provider_id })
+  },
+)
+
+server.registerTool(
+  'update_provider_implementation',
+  {
+    title: 'Update Factory CLI provider implementation notes',
+    description:
+      'Persist implementation phase status, iteration learnings, failure summaries, and next actions to sidebar and generator-metadata.yaml.',
+    inputSchema: {
+      provider_id: z.string().min(1),
+      notes: z.array(z.string()).default([]),
+      last_failure: z.string().optional(),
+      next_action: z.string().optional(),
+    },
+  },
+  async ({ provider_id, notes, last_failure, next_action }) => {
+    const draft = await loadDraft()
+    upsertProviderHarness(draft, {
+      phase: 'implementation',
+      providerId: provider_id,
+      implementationNotes: notes,
+    })
+    await saveDraft(draft)
+    saveGeneratorMetadata(provider_id, {
+      implementation: {
+        notes,
+        last_failure,
+        next_action,
+      },
+    })
+    return ok(`Provider implementation notes updated.`, { provider_id })
   },
 )
 

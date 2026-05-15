@@ -29,50 +29,6 @@ export type ConnectionStatusDto = {
   connectedAt?: number
 }
 
-export const getConnectionStatuses = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<{ github: ConnectionStatusDto; codex: ConnectionStatusDto }> => {
-    const db = await getDb()
-    const [providers, accounts] = await Promise.all([
-      db.select().from(schema.oauthProviders),
-      db.select().from(schema.oauthAccounts),
-    ])
-    const providerById = new Map(providers.map((p) => [p.id as ProviderId, p]))
-    const accountById = new Map(accounts.map((a) => [a.id as ProviderId, a]))
-
-    const codexDefault = `http://localhost:${CODEX_OAUTH.callbackPort}${CODEX_OAUTH.redirectPath}`
-
-    const dto = (id: ProviderId, defaultCallback: string): ConnectionStatusDto => {
-      const p = providerById.get(id)
-      const a = accountById.get(id)
-      return {
-        id,
-        configured: id === 'codex' ? true : Boolean(p?.clientId),
-        connected: Boolean(a),
-        callbackUrl: p?.callbackUrl ?? defaultCallback,
-        callbackPort: p?.callbackPort ?? portFromCallback(defaultCallback),
-        clientIdMasked: p?.clientId
-          ? maskClientId(p.clientId)
-          : id === 'codex'
-            ? maskClientId(CODEX_OAUTH.clientId)
-            : undefined,
-        account: a
-          ? {
-              id: a.accountId ?? undefined,
-              login: a.accountLogin ?? undefined,
-              avatarUrl: a.accountAvatarUrl ?? undefined,
-            }
-          : undefined,
-        connectedAt: a?.connectedAt ? a.connectedAt.getTime() : undefined,
-      }
-    }
-
-    return {
-      github: dto('github', 'http://localhost:1456/auth/callback'),
-      codex: dto('codex', codexDefault),
-    }
-  },
-)
-
 const githubConfigSchema = z.object({
   clientId: z.string().trim().min(10),
   clientSecret: z.string().trim().min(10),

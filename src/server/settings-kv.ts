@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 
-import { decrypt, encrypt } from '#/server/crypto'
+import { decrypt, encrypt, isDecryptError } from '#/server/crypto'
 import { getDb, schema } from '#/server/db/client'
 
 /**
@@ -14,7 +14,14 @@ export async function getSetting(key: string): Promise<string | null> {
     where: eq(schema.appSettings.key, key),
   })
   if (!row || row.value == null) return null
-  return row.encrypted ? decrypt(row.value) : row.value
+  if (!row.encrypted) return row.value
+  try {
+    return decrypt(row.value)
+  } catch (e) {
+    if (!isDecryptError(e)) throw e
+    await deleteSetting(key)
+    return null
+  }
 }
 
 export async function setSetting(

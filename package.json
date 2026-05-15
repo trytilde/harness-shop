@@ -6,7 +6,7 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --port 3100",
+    "dev": "rm -rf node_modules/.vite && vite dev --host 0.0.0.0 --port 3100",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run"

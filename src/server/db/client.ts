@@ -103,6 +103,9 @@ const MIGRATION_SQL = `
     ref_commit TEXT,
     index_id TEXT,
     codex_thread_id TEXT,
+    harness_id TEXT NOT NULL DEFAULT 'experiment',
+    provider_name TEXT,
+    tools_csv TEXT,
     title TEXT,
     goal TEXT,
     status TEXT NOT NULL DEFAULT 'draft',
@@ -180,6 +183,14 @@ async function applyMigrations(client: Client) {
   // Backfill columns that older DBs may be missing.
   await ensureColumn(client, 'experiments', 'index_id', 'TEXT')
   await ensureColumn(client, 'experiments', 'codex_thread_id', 'TEXT')
+  await ensureColumn(
+    client,
+    'experiments',
+    'harness_id',
+    "TEXT NOT NULL DEFAULT 'experiment'",
+  )
+  await ensureColumn(client, 'experiments', 'provider_name', 'TEXT')
+  await ensureColumn(client, 'experiments', 'tools_csv', 'TEXT')
   await ensureColumn(
     client,
     'experiments',

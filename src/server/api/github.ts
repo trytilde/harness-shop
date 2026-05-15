@@ -6,7 +6,12 @@ import { getGithubAccessToken } from '#/server/oauth/github'
 import type { Branch, Repo } from '#/lib/types'
 
 async function octokit(): Promise<Octokit> {
-  const token = await getGithubAccessToken()
+  let token: string | null = null
+  try {
+    token = await getGithubAccessToken()
+  } catch (e) {
+    throw new Error((e as Error).message)
+  }
   if (!token) throw new Error('GitHub is not connected.')
   return new Octokit({
     auth: token,

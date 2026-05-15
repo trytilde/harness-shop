@@ -53,3 +53,12 @@ export function decrypt(payload: string): string {
   decipher.setAuthTag(tag)
   return Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8')
 }
+
+export function isDecryptError(error: unknown): boolean {
+  const message = (error as Error)?.message ?? ''
+  return (
+    message.includes('Unsupported state or unable to authenticate data') ||
+    message.includes('bad decrypt') ||
+    message.includes('unable to decrypt')
+  )
+}

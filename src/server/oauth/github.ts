@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 
-import { decrypt, encrypt } from '#/server/crypto'
+import { decrypt, encrypt, isDecryptError } from '#/server/crypto'
 import { getDb, schema } from '#/server/db/client'
 import { ensureListener, registerFlow } from '#/server/oauth/callback-server'
 
@@ -54,9 +54,17 @@ export async function loadGithubProviderConfig(): Promise<GithubProviderConfig |
     where: eq(schema.oauthProviders.id, 'github'),
   })
   if (!row || !row.clientId || !row.clientSecretEnc) return null
+  let clientSecret: string
+  try {
+    clientSecret = decrypt(row.clientSecretEnc)
+  } catch (e) {
+    if (!isDecryptError(e)) throw e
+    await db.delete(schema.oauthProviders).where(eq(schema.oauthProviders.id, 'github'))
+    return null
+  }
   return {
     clientId: row.clientId,
-    clientSecret: decrypt(row.clientSecretEnc),
+    clientSecret,
     callbackUrl: row.callbackUrl,
     callbackPort: row.callbackPort,
   }
@@ -193,7 +201,13 @@ export async function getGithubAccessToken(): Promise<string | null> {
     where: eq(schema.oauthAccounts.id, 'github'),
   })
   if (!row) return null
-  return decrypt(row.accessTokenEnc)
+  try {
+    return decrypt(row.accessTokenEnc)
+  } catch (e) {
+    if (!isDecryptError(e)) throw e
+    await db.delete(schema.oauthAccounts).where(eq(schema.oauthAccounts.id, 'github'))
+    throw new Error('GitHub credentials could not be decrypted. Reconnect GitHub in Settings.')
+  }
 }
 
 function portFromCallback(url: string): number {

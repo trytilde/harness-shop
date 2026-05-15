@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { stringify as yamlStringify } from 'yaml'
 
-import { decrypt } from '#/server/crypto'
+import { decrypt, isDecryptError } from '#/server/crypto'
 import { getDb, schema } from '#/server/db/client'
 import { deleteSetting, getSetting, setSetting } from '#/server/settings-kv'
 
@@ -38,7 +38,13 @@ export async function getCodexAccessToken(): Promise<string | null> {
     where: eq(schema.oauthAccounts.id, 'codex'),
   })
   if (!row) return null
-  return decrypt(row.accessTokenEnc)
+  try {
+    return decrypt(row.accessTokenEnc)
+  } catch (e) {
+    if (!isDecryptError(e)) throw e
+    await db.delete(schema.oauthAccounts).where(eq(schema.oauthAccounts.id, 'codex'))
+    return null
+  }
 }
 
 /** POST a 1-token embedding to api.openai.com to validate a bearer. */

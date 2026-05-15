@@ -54,6 +54,10 @@ export const experiments = sqliteTable('experiments', {
   indexId: text('index_id'),
   /** Codex thread id so we can resume across reloads. */
   codexThreadId: text('codex_thread_id'),
+  /** Harness workflow type. */
+  harnessId: text('harness_id').notNull().default('experiment'),
+  providerName: text('provider_name'),
+  toolsCsv: text('tools_csv'),
   title: text('title'),
   goal: text('goal'),
   status: text('status', {

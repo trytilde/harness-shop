@@ -1,40 +1,26 @@
-import { useEffect, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { ConnectGate } from '#/components/connect-gate'
-import { CreateExperimentDialog } from '#/components/create-experiment-dialog'
-import { ExperimentsTable } from '#/components/experiments-table'
+import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
+import { Button } from '#/components/ui/button'
+import { HARNESS_DEFINITIONS } from '#/lib/harness-definitions'
 import { useConnections } from '#/lib/connections'
-import type { Experiment } from '#/lib/types'
-import { listExperimentsFn } from '#/server/api/experiments'
 
 export const Route = createFileRoute('/_app/')({ component: DashboardPage })
 
 function DashboardPage() {
   const { allConnected, loading } = useConnections()
-  const [experiments, setExperiments] = useState<Experiment[]>([])
-
-  useEffect(() => {
-    if (!allConnected) return
-    let cancelled = false
-    listExperimentsFn().then((rows) => {
-      if (!cancelled) setExperiments(rows)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [allConnected])
+  const navigate = useNavigate()
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Experiments</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Harness Shop</h1>
           <p className="text-muted-foreground text-sm">
-            Define an optimization goal, design a harness, and iterate to a result.
+            Pick a structured harness, ground it in a codebase, and iterate to a result.
           </p>
         </div>
-        <CreateExperimentDialog disabled={!allConnected} />
       </div>
 
       {loading ? (
@@ -42,7 +28,48 @@ function DashboardPage() {
           Loading…
         </div>
       ) : allConnected ? (
-        <ExperimentsTable data={experiments} />
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            {HARNESS_DEFINITIONS.map((harness) => {
+              const Icon = harness.icon
+              return (
+                <Card key={harness.id} className="rounded-lg">
+                  <CardHeader className="space-y-3">
+                    <div
+                      className={`flex size-10 items-center justify-center rounded-md ${harness.accent}`}
+                    >
+                      <Icon className="size-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">{harness.name}</CardTitle>
+                      {harness.requiredRepoHint && (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {harness.requiredRepoHint}
+                        </p>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-muted-foreground min-h-16 text-sm">
+                      {harness.description}
+                    </p>
+                    <Button
+                      className="w-full"
+                      onClick={() =>
+                        navigate({
+                          to: '/harnesses/$harnessId',
+                          params: { harnessId: harness.id },
+                        })
+                      }
+                    >
+                      {harness.cta}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </>
       ) : (
         <ConnectGate />
       )}

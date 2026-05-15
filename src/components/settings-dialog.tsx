@@ -25,6 +25,8 @@ export function SettingsDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { state, refresh } = useConnections()
+  const github = state?.github
+  const codex = state?.codex
   const [pane, setPane] = useState<Pane | null>(null)
   const [hasOpenaiKey, setHasOpenaiKey] = useState(false)
 
@@ -49,22 +51,22 @@ export function SettingsDialog({
               icon={Github}
               title="Configure GitHub"
               subtitle={
-                state.github.connected
-                  ? `Connected as ${state.github.account?.login ?? 'github user'}`
+                github?.connected
+                  ? `Connected as ${github.account?.login ?? 'github user'}`
                   : 'Repository access via OAuth App'
               }
-              connected={state.github.connected}
+              connected={Boolean(github?.connected)}
               onClick={() => setPane('github')}
             />
             <Row
               icon={Sparkles}
               title="Configure OpenAI subscription"
               subtitle={
-                state.codex.connected
-                  ? `Signed in as ${state.codex.account?.login ?? 'chatgpt user'}`
+                codex?.connected
+                  ? `Signed in as ${codex.account?.login ?? 'chatgpt user'}`
                   : 'Sign in with ChatGPT (Codex agents + slow embedding fallback)'
               }
-              connected={state.codex.connected}
+              connected={Boolean(codex?.connected)}
               onClick={() => setPane('codex')}
             />
             <Row

@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as ApiIndexStreamJobIdRouteImport } from './routes/api/index-stream.$jobId'
+import { Route as ApiConnectionsStatusRouteImport } from './routes/api/connections.status'
+import { Route as AppHarnessesHarnessIdRouteImport } from './routes/_app/harnesses/$harnessId'
 import { Route as AppExperimentsExperimentIdRouteImport } from './routes/_app/experiments/$experimentId'
 import { Route as ApiExperimentsExperimentIdChatRouteImport } from './routes/api/experiments.$experimentId.chat'
 import { Route as ApiExperimentsExperimentIdChatCancelRouteImport } from './routes/api/experiments.$experimentId.chat.cancel'
@@ -29,6 +31,16 @@ const ApiIndexStreamJobIdRoute = ApiIndexStreamJobIdRouteImport.update({
   id: '/api/index-stream/$jobId',
   path: '/api/index-stream/$jobId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiConnectionsStatusRoute = ApiConnectionsStatusRouteImport.update({
+  id: '/api/connections/status',
+  path: '/api/connections/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppHarnessesHarnessIdRoute = AppHarnessesHarnessIdRouteImport.update({
+  id: '/harnesses/$harnessId',
+  path: '/harnesses/$harnessId',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppExperimentsExperimentIdRoute =
   AppExperimentsExperimentIdRouteImport.update({
@@ -52,6 +64,8 @@ const ApiExperimentsExperimentIdChatCancelRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/experiments/$experimentId': typeof AppExperimentsExperimentIdRoute
+  '/harnesses/$harnessId': typeof AppHarnessesHarnessIdRoute
+  '/api/connections/status': typeof ApiConnectionsStatusRoute
   '/api/index-stream/$jobId': typeof ApiIndexStreamJobIdRoute
   '/api/experiments/$experimentId/chat': typeof ApiExperimentsExperimentIdChatRouteWithChildren
   '/api/experiments/$experimentId/chat/cancel': typeof ApiExperimentsExperimentIdChatCancelRoute
@@ -59,6 +73,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/experiments/$experimentId': typeof AppExperimentsExperimentIdRoute
+  '/harnesses/$harnessId': typeof AppHarnessesHarnessIdRoute
+  '/api/connections/status': typeof ApiConnectionsStatusRoute
   '/api/index-stream/$jobId': typeof ApiIndexStreamJobIdRoute
   '/api/experiments/$experimentId/chat': typeof ApiExperimentsExperimentIdChatRouteWithChildren
   '/api/experiments/$experimentId/chat/cancel': typeof ApiExperimentsExperimentIdChatCancelRoute
@@ -68,6 +84,8 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/experiments/$experimentId': typeof AppExperimentsExperimentIdRoute
+  '/_app/harnesses/$harnessId': typeof AppHarnessesHarnessIdRoute
+  '/api/connections/status': typeof ApiConnectionsStatusRoute
   '/api/index-stream/$jobId': typeof ApiIndexStreamJobIdRoute
   '/api/experiments/$experimentId/chat': typeof ApiExperimentsExperimentIdChatRouteWithChildren
   '/api/experiments/$experimentId/chat/cancel': typeof ApiExperimentsExperimentIdChatCancelRoute
@@ -77,6 +95,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/experiments/$experimentId'
+    | '/harnesses/$harnessId'
+    | '/api/connections/status'
     | '/api/index-stream/$jobId'
     | '/api/experiments/$experimentId/chat'
     | '/api/experiments/$experimentId/chat/cancel'
@@ -84,6 +104,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/experiments/$experimentId'
+    | '/harnesses/$harnessId'
+    | '/api/connections/status'
     | '/api/index-stream/$jobId'
     | '/api/experiments/$experimentId/chat'
     | '/api/experiments/$experimentId/chat/cancel'
@@ -92,6 +114,8 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_app/'
     | '/_app/experiments/$experimentId'
+    | '/_app/harnesses/$harnessId'
+    | '/api/connections/status'
     | '/api/index-stream/$jobId'
     | '/api/experiments/$experimentId/chat'
     | '/api/experiments/$experimentId/chat/cancel'
@@ -99,6 +123,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  ApiConnectionsStatusRoute: typeof ApiConnectionsStatusRoute
   ApiIndexStreamJobIdRoute: typeof ApiIndexStreamJobIdRoute
   ApiExperimentsExperimentIdChatRoute: typeof ApiExperimentsExperimentIdChatRouteWithChildren
 }
@@ -125,6 +150,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/index-stream/$jobId'
       preLoaderRoute: typeof ApiIndexStreamJobIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/connections/status': {
+      id: '/api/connections/status'
+      path: '/api/connections/status'
+      fullPath: '/api/connections/status'
+      preLoaderRoute: typeof ApiConnectionsStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/harnesses/$harnessId': {
+      id: '/_app/harnesses/$harnessId'
+      path: '/harnesses/$harnessId'
+      fullPath: '/harnesses/$harnessId'
+      preLoaderRoute: typeof AppHarnessesHarnessIdRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/experiments/$experimentId': {
       id: '/_app/experiments/$experimentId'
@@ -153,11 +192,13 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppExperimentsExperimentIdRoute: typeof AppExperimentsExperimentIdRoute
+  AppHarnessesHarnessIdRoute: typeof AppHarnessesHarnessIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppExperimentsExperimentIdRoute: AppExperimentsExperimentIdRoute,
+  AppHarnessesHarnessIdRoute: AppHarnessesHarnessIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -179,6 +220,7 @@ const ApiExperimentsExperimentIdChatRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  ApiConnectionsStatusRoute: ApiConnectionsStatusRoute,
   ApiIndexStreamJobIdRoute: ApiIndexStreamJobIdRoute,
   ApiExperimentsExperimentIdChatRoute:
     ApiExperimentsExperimentIdChatRouteWithChildren,

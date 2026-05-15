@@ -4,7 +4,6 @@ import {
   beginCodexOauthFn,
   beginGithubOauthFn,
   disconnectFn,
-  getConnectionStatuses,
   getOauthFlowStatusFn,
   type ConnectionStatusDto,
   type ProviderId,
@@ -35,15 +34,24 @@ function emptyStatus(id: ProviderId): ConnectionStatus {
 let inflight: Promise<ConnectionsState> | null = null
 const subscribers = new Set<(s: ConnectionsState) => void>()
 let cache: ConnectionsState = EMPTY_STATE
+let lastError: string | null = null
 
 async function fetchStatuses(): Promise<ConnectionsState> {
   if (inflight) return inflight
   inflight = (async () => {
     try {
-      const data = await getConnectionStatuses()
-      cache = data
+      const res = await fetch('/api/connections/status')
+      if (!res.ok) throw new Error(`Connection status failed (${res.status})`)
+      const data = (await res.json()) as ConnectionsState
+      cache = data ?? EMPTY_STATE
+      lastError = null
       subscribers.forEach((fn) => fn(data))
-      return data
+      return cache
+    } catch (e) {
+      lastError = (e as Error).message
+      cache = EMPTY_STATE
+      subscribers.forEach((fn) => fn(cache))
+      return cache
     } finally {
       inflight = null
     }
@@ -54,12 +62,16 @@ async function fetchStatuses(): Promise<ConnectionsState> {
 export function useConnections() {
   const [state, setState] = useState<ConnectionsState>(cache)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(lastError)
 
   useEffect(() => {
     subscribers.add(setState)
     let cancelled = false
     fetchStatuses().then(() => {
-      if (!cancelled) setLoading(false)
+      if (!cancelled) {
+        setError(lastError)
+        setLoading(false)
+      }
     })
     const onFocus = () => {
       void fetchStatuses()
@@ -73,7 +85,9 @@ export function useConnections() {
   }, [])
 
   const refresh = useCallback(async () => {
-    return fetchStatuses()
+    const next = await fetchStatuses()
+    setError(lastError)
+    return next
   }, [])
 
   const disconnect = useCallback(async (provider: ProviderId) => {
@@ -83,7 +97,7 @@ export function useConnections() {
 
   const allConnected = state.github.connected && state.codex.connected
 
-  return { state, loading, allConnected, refresh, disconnect }
+  return { state, loading, error, allConnected, refresh, disconnect }
 }
 
 /**

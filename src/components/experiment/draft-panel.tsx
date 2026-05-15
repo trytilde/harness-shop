@@ -8,8 +8,10 @@ import {
   Rocket,
   Sparkles,
   Target,
+  ClipboardList,
 } from 'lucide-react'
 
+import { ProviderSecretsDialog } from '#/components/provider-secrets-dialog'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -18,6 +20,7 @@ import { ScrollArea } from '#/components/ui/scroll-area'
 import type { ExperimentDraft, ExperimentPhase } from '#/lib/types'
 
 export function DraftPanel({
+  experimentId,
   draft,
   agentPending,
   phase,
@@ -26,6 +29,7 @@ export function DraftPanel({
   onStartRuns,
   onMaxConsecutiveFailuresChange,
 }: {
+  experimentId: string
   draft: ExperimentDraft
   agentPending: boolean
   phase: ExperimentPhase
@@ -40,6 +44,9 @@ export function DraftPanel({
   const hasHarness = draft.harness.description.trim().length > 0
   const hasEvaluators = hasSubGoals && draft.subGoals.some((sg) => sg.evaluator)
   const hasMetrics = (draft.metrics ?? []).length > 0
+  const infoBlocks = draft.infoBlocks ?? []
+  const requiredSecrets = draft.requiredSecrets ?? []
+  const providerHarness = draft.providerHarness
 
   const canGenerate = hasGoal && hasSubGoals && hasArtifacts
   const canStartRuns =
@@ -68,6 +75,133 @@ export function DraftPanel({
               <Empty>The agent will distill your goal into one clear sentence here.</Empty>
             )}
           </Section>
+
+          {providerHarness && (
+            <Section
+              icon={<ClipboardList className="size-4" />}
+              label="Provider artifacts"
+              right={<Badge variant="secondary">{providerHarness.phase}</Badge>}
+            >
+              <div className="space-y-4 text-sm">
+                {providerHarness.providerGoal && (
+                  <ArtifactBlock title="Provider goal">
+                    {providerHarness.providerGoal}
+                  </ArtifactBlock>
+                )}
+                {providerHarness.toolGoals &&
+                  Object.keys(providerHarness.toolGoals).length > 0 && (
+                    <ArtifactBlock title="Tool goals">
+                      <div className="space-y-2">
+                        {Object.entries(providerHarness.toolGoals).map(
+                          ([toolId, goal]) => (
+                            <div key={toolId}>
+                              <code className="bg-muted rounded px-1 py-0.5 text-[10px]">
+                                {toolId}
+                              </code>
+                              <p className="mt-1 text-xs">{goal}</p>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </ArtifactBlock>
+                  )}
+                {(providerHarness.references ?? []).length > 0 && (
+                  <ArtifactBlock title="References">
+                    <div className="space-y-2">
+                      {(providerHarness.references ?? []).map((ref) => (
+                        <div key={ref.url} className="min-w-0">
+                          <div className="mb-1 flex flex-wrap items-center gap-1">
+                            <Badge variant="secondary" className="text-[10px]">
+                              {ref.kind}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px]">
+                              {ref.source}
+                            </Badge>
+                            {ref.confirmed && (
+                              <Badge className="text-[10px]">confirmed</Badge>
+                            )}
+                          </div>
+                          <p className="truncate text-xs font-medium">
+                            {ref.title ?? ref.url}
+                          </p>
+                          <p className="text-muted-foreground break-all text-[10px]">
+                            {ref.url}
+                          </p>
+                          {ref.summary && (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              {ref.summary}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ArtifactBlock>
+                )}
+                {providerHarness.providerPlan && (
+                  <ArtifactBlock title="Provider plan">
+                    {providerHarness.providerPlan}
+                  </ArtifactBlock>
+                )}
+                {(providerHarness.toolPlans ?? []).length > 0 && (
+                  <ArtifactBlock title="Tool plans">
+                    <div className="space-y-3">
+                      {(providerHarness.toolPlans ?? []).map((tool) => (
+                        <div key={tool.toolId}>
+                          <code className="bg-muted rounded px-1 py-0.5 text-[10px]">
+                            {tool.toolId}
+                          </code>
+                          <p className="mt-1 text-xs">{tool.implementation}</p>
+                          {tool.inputSchema && (
+                            <pre className="bg-muted mt-2 max-h-32 overflow-auto rounded p-2 text-[10px]">
+                              {tool.inputSchema}
+                            </pre>
+                          )}
+                          {tool.outputSchema && (
+                            <pre className="bg-muted mt-2 max-h-32 overflow-auto rounded p-2 text-[10px]">
+                              {tool.outputSchema}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ArtifactBlock>
+                )}
+                {providerHarness.testingPlan && (
+                  <ArtifactBlock title="Testing plan">
+                    {providerHarness.testingPlan}
+                  </ArtifactBlock>
+                )}
+              </div>
+            </Section>
+          )}
+
+          {infoBlocks.length > 0 && (
+            <Section
+              icon={<ClipboardList className="size-4" />}
+              label="Discovery & specs"
+              right={<Badge variant="secondary">{infoBlocks.length}</Badge>}
+            >
+              <div className="space-y-3 min-w-0">
+                {infoBlocks.map((block) => (
+                  <div key={block.id} className="rounded-md border p-3 text-sm">
+                    <div className="mb-2 font-medium">{block.title}</div>
+                    <div className="space-y-2">
+                      {block.items.map((item) => (
+                        <div key={`${block.id}-${item.label}`} className="min-w-0">
+                          <div className="text-muted-foreground text-[10px] font-semibold uppercase">
+                            {item.label}
+                          </div>
+                          <p className="text-xs whitespace-pre-wrap break-words">
+                            {item.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
 
           <Section
             icon={<Gauge className="size-4" />}
@@ -255,6 +389,13 @@ export function DraftPanel({
       </ScrollArea>
 
       <div className="border-t bg-background/80 px-4 py-3 backdrop-blur space-y-3">
+        {requiredSecrets.length > 0 && (
+          <ProviderSecretsDialog
+            experimentId={experimentId}
+            requiredSecrets={requiredSecrets}
+            disabled={agentPending}
+          />
+        )}
         {phase === 'runs' || phase === 'completed' ? (
           <div className="text-muted-foreground rounded-md border border-dashed px-3 py-2 text-center text-xs">
             {phase === 'completed'
@@ -347,4 +488,19 @@ function Section({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-muted-foreground text-xs italic">{children}</p>
+}
+
+function ArtifactBlock({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="mb-2 text-xs font-semibold uppercase">{title}</div>
+      <div className="text-xs whitespace-pre-wrap break-words">{children}</div>
+    </div>
+  )
 }

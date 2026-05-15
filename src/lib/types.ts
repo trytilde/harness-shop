@@ -23,6 +23,9 @@ export type ExperimentRef =
 
 export type Experiment = {
   id: string
+  harnessId?: string
+  providerName?: string
+  tools?: string[]
   repoOrg: string
   repoName: string
   ref: ExperimentRef
@@ -92,9 +95,14 @@ export type ExperimentRun = {
 }
 
 export type ExperimentDraft = {
+  harnessId?: string
+  workBranch?: string
+  providerHarness?: ProviderHarnessDraft
   repo: { org: string; name: string }
   ref: ExperimentRef
   goal: string
+  infoBlocks?: HarnessInfoBlock[]
+  requiredSecrets?: RequiredSecret[]
   subGoals: SubGoal[]
   artifacts: OutputArtifact[]
   metrics: Metric[]
@@ -102,6 +110,57 @@ export type ExperimentDraft = {
     description: string
     code?: string
   }
+}
+
+export type ProviderReferenceKind = 'auth' | 'api_usage' | 'general'
+
+export type ProviderReference = {
+  url: string
+  title?: string
+  kind: ProviderReferenceKind
+  source: 'user' | 'external'
+  summary?: string
+  confirmed?: boolean
+}
+
+export type ProviderHarnessPhase =
+  | 'discovery'
+  | 'plan'
+  | 'testing'
+  | 'implementation'
+
+export type ProviderToolPlan = {
+  toolId: string
+  goal: string
+  implementation?: string
+  inputSchema?: string
+  outputSchema?: string
+}
+
+export type ProviderHarnessDraft = {
+  phase: ProviderHarnessPhase
+  providerId?: string
+  providerGoal?: string
+  discoveryNotes?: string[]
+  references?: ProviderReference[]
+  toolGoals?: Record<string, string>
+  providerPlan?: string
+  toolPlans?: ProviderToolPlan[]
+  e2eSecretsShape?: Record<string, string>
+  testingPlan?: string
+  implementationNotes?: string[]
+}
+
+export type HarnessInfoBlock = {
+  id: string
+  title: string
+  items: { label: string; value: string }[]
+}
+
+export type RequiredSecret = {
+  name: string
+  description: string
+  required?: boolean
 }
 
 export type Repo = {

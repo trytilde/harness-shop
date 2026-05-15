@@ -8,6 +8,14 @@ import tailwindcss from '@tailwindcss/vite'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
+  test: {
+    exclude: [
+      '**/node_modules/**',
+      '**/.git/**',
+      '**/dist/**',
+      '**/data/**',
+    ],
+  },
   plugins: [devtools(), tailwindcss(), tanstackStart(), viteReact()],
   server: {
     watch: {

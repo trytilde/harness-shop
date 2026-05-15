@@ -37,90 +37,11 @@ import {
   setMaxConsecutiveFailuresFn,
 } from '#/server/api/runs'
 import type { ExperimentDraft, ExperimentPhase } from '#/lib/types'
-
-/** Message sent to the agent when the user clicks "Generate harness & evaluators". */
-function HARNESS_PHASE_PROMPT(draft: ExperimentDraft): string {
-  const subgoalLines = draft.subGoals
-    .map(
-      (sg) =>
-        `  - [${sg.kind}] ${sg.title} — ${sg.description}` +
-        (sg.artifactDeps.length
-          ? ` (depends on: ${sg.artifactDeps
-              .map((id) => draft.artifacts.find((a) => a.id === id)?.name ?? id)
-              .join(', ')})`
-          : ''),
-    )
-    .join('\n')
-  const artifactLines = draft.artifacts
-    .map(
-      (a) =>
-        `  - ${a.name}${a.path ? ` (${a.path})` : ''} — ${a.description}`,
-    )
-    .join('\n')
-  const metricLines = (draft.metrics ?? [])
-    .map(
-      (m) =>
-        `  - ${m.name}${m.unit ? ` (${m.unit})` : ''} — ${m.description}` +
-        (m.target ? ` [target: ${m.target}]` : ''),
-    )
-    .join('\n')
-
-  return `HARNESS PHASE START
-
-Time to implement. The design is locked in:
-
-GOAL
-  ${draft.goal}
-
-SUB-GOALS
-${subgoalLines || '  (none)'}
-
-OUTPUT ARTIFACTS
-${artifactLines || '  (none)'}
-
-METRICS
-${metricLines || '  (none)'}
-
-Now do the work:
-
-1. Build a runnable harness in this repo that produces every artifact above
-   and emits every metric. Persist via experiment_state.set_harness.
-2. For each quantitative sub-goal: write real assertion code that consumes
-   the listed artifact(s) and call set_subgoal_evaluator(id, code).
-3. For each qualitative sub-goal: write a reviewer prompt; call the same.
-4. Modify source files where it cleans up the harness — instrumentation,
-   hooks, tunable config — KEEPING IN MIND that hot-path edits for
-   observability change the very perf you're measuring. Prefer narrow flags
-   or sampling and call out the tradeoff briefly in chat per change.
-5. Don't \`git commit\` yet. Leave changes in the working tree so the user
-   can review them in the right-hand diff panel.
-
-Stream a short summary in chat after each significant edit (file + reason).`
-}
-
-function RUN_PHASE_PROMPT(maxFails: number, experimentId: string): string {
-  return `RUN PHASE START
-
-Begin the autonomous run loop. Constraints:
-- Branch: experiment/${experimentId}. Create + checkout if it doesn't exist.
-  Make a base commit titled "harness base for ${experimentId}" capturing the
-  current working tree.
-- Per run: start_run → execute harness → record_run_artifact for every output
-  → record_run_metric for every metric → run evaluators and call
-  record_run_evaluator_outcome for each → commit your changes (msg:
-  "run <N>: <summary>") → tag experiment/${experimentId}/<N> →
-  complete_run with status, summary, commit_sha, tag.
-- Never \`git push\`. The clone has no remote anyway.
-- Abort after ${maxFails} consecutive failed runs and write a final summary.
-- After every run: review logs/evaluators/metrics; if PASSED, look for
-  remaining issues — if none, set_phase("completed") and stop. If FAILED,
-  call list_recent_runs, search the codebase via cocoindex_code, decide on
-  the smallest meaningful change, and continue.
-- The user can press an emergency Stop button. If you receive an AbortError,
-  do not start a new run.
-
-Start now.`
-}
+import { getHarnessDefinition } from '#/lib/harness-definitions'
+import {
+  buildHarnessPhasePrompt,
+  buildRunPhasePrompt,
+} from '#/lib/harness-prompts'
 
 export const Route = createFileRoute('/_app/experiments/$experimentId')({
   component: ExperimentPage,
@@ -135,6 +56,7 @@ type ExperimentMeta = {
   title: string | null
   phase: ExperimentPhase
   maxConsecutiveFailures: number | null
+  harnessId: string
 }
 
 function ExperimentPage() {
@@ -167,6 +89,7 @@ function ExperimentPage() {
           title: row.title,
           phase: row.phase,
           maxConsecutiveFailures: row.maxConsecutiveFailures,
+          harnessId: row.harnessId,
         })
       })
       .catch((e: Error) => {
@@ -207,7 +130,12 @@ function ExperimentPage() {
         setDraft({
           repo: { org: repoOrg, name: repoName },
           ref: { kind: 'branch', branch: ref },
+          harnessId: d.harnessId,
+          workBranch: d.workBranch,
+          providerHarness: d.providerHarness,
           goal: d.goal,
+          infoBlocks: d.infoBlocks,
+          requiredSecrets: d.requiredSecrets,
           subGoals: d.subGoals,
           artifacts: d.artifacts,
           metrics: d.metrics,
@@ -224,7 +152,8 @@ function ExperimentPage() {
           if (
             prev.phase === row.phase &&
             prev.maxConsecutiveFailures === row.maxConsecutiveFailures &&
-            prev.title === row.title
+            prev.title === row.title &&
+            prev.harnessId === row.harnessId
           ) {
             return prev
           }
@@ -233,6 +162,7 @@ function ExperimentPage() {
             phase: row.phase,
             maxConsecutiveFailures: row.maxConsecutiveFailures,
             title: row.title,
+            harnessId: row.harnessId,
           }
         })
       }
@@ -300,7 +230,9 @@ function ExperimentPage() {
       data: { experimentId: exp.id, phase: 'harness' },
     })
     setExp((prev) => (prev ? { ...prev, phase: 'harness' } : prev))
-    void chat.sendMessage(HARNESS_PHASE_PROMPT(draft))
+    void chat.sendMessage(
+      buildHarnessPhasePrompt(draft, getHarnessDefinition(exp.harnessId)),
+    )
   }
 
   const onStartRuns = async (maxFails: number) => {
@@ -316,7 +248,14 @@ function ExperimentPage() {
         : prev,
     )
     setTab('runs')
-    void chat.sendMessage(RUN_PHASE_PROMPT(maxFails, exp.id))
+    void chat.sendMessage(
+      buildRunPhasePrompt(
+        maxFails,
+        exp.id,
+        getHarnessDefinition(exp.harnessId),
+        draft.workBranch,
+      ),
+    )
   }
 
   const onMaxConsecutiveFailuresChange = async (value: number) => {
@@ -409,6 +348,7 @@ function ExperimentPage() {
             className="min-w-0 overflow-hidden"
           >
             <DraftPanel
+              experimentId={exp.id}
               draft={draft}
               agentPending={chat.pending}
               phase={exp.phase}

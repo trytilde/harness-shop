@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from 'node:path'
 
 import { eq } from 'drizzle-orm'
 
-import { decrypt } from '#/server/crypto'
+import { decrypt, isDecryptError } from '#/server/crypto'
 import { getDb, schema } from '#/server/db/client'
 
 /**
@@ -29,11 +29,17 @@ export async function materializeChatgptAuthFile(): Promise<string | null> {
     where: eq(schema.oauthAccounts.id, 'codex'),
   })
   if (!row) return null
-  const accessToken = row.accessTokenEnc ? decrypt(row.accessTokenEnc) : null
-  const idToken = row.idTokenEnc ? decrypt(row.idTokenEnc) : null
-  const refreshToken = row.refreshTokenEnc
-    ? decrypt(row.refreshTokenEnc)
-    : null
+  let accessToken: string | null = null
+  let idToken: string | null = null
+  let refreshToken: string | null = null
+  try {
+    accessToken = row.accessTokenEnc ? decrypt(row.accessTokenEnc) : null
+    idToken = row.idTokenEnc ? decrypt(row.idTokenEnc) : null
+    refreshToken = row.refreshTokenEnc ? decrypt(row.refreshTokenEnc) : null
+  } catch (e) {
+    if (!isDecryptError(e)) throw e
+    return null
+  }
   if (!accessToken || !idToken) return null
 
   const home = codexHomePath()
