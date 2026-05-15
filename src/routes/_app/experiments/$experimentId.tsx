@@ -332,10 +332,16 @@ function ExperimentPage() {
             className="min-w-0 overflow-hidden"
           >
             <ChatPanel
+              experimentId={exp.id}
               messages={chat.messages}
               onSend={chat.sendMessage}
               onStop={chat.cancel}
               pending={chat.pending}
+              onSecretFormSaved={(path) => {
+                void chat.sendMessage(
+                  `Override secrets saved to ${path}. Continue from the provider testing phase using the saved secrets.`,
+                )
+              }}
               exportFilename={`harness-${exp.id}-chat`}
               exportContext={{
                 experimentId: exp.id,

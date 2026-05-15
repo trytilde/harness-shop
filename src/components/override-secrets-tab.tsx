@@ -28,14 +28,6 @@ export function OverrideSecretsTab({
   disabled?: boolean
   onSaved?: (path: string) => void
 }) {
-  const fields = useMemo(() => schemaFields(config?.schema), [config?.schema])
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [savedPath, setSavedPath] = useState<string | null>(
-    config?.savedPath ?? null,
-  )
-
   if (!config) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center rounded-lg border border-dashed text-sm">
@@ -43,6 +35,38 @@ export function OverrideSecretsTab({
       </div>
     )
   }
+
+  return (
+    <OverrideSecretsForm
+      experimentId={experimentId}
+      config={config}
+      disabled={disabled}
+      onSaved={onSaved}
+      className="h-full"
+    />
+  )
+}
+
+export function OverrideSecretsForm({
+  experimentId,
+  config,
+  disabled,
+  onSaved,
+  className,
+}: {
+  experimentId: string
+  config: OverrideSecretsFormConfig
+  disabled?: boolean
+  onSaved?: (path: string) => void
+  className?: string
+}) {
+  const fields = useMemo(() => schemaFields(config?.schema), [config?.schema])
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [savedPath, setSavedPath] = useState<string | null>(
+    config?.savedPath ?? null,
+  )
 
   const required = new Set(config.schema.required ?? [])
   const missing = fields.some(
@@ -78,7 +102,7 @@ export function OverrideSecretsTab({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className={`flex min-h-0 flex-col overflow-hidden ${className ?? 'h-full'}`}>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl space-y-5 px-2 py-2">
           <div className="space-y-1">

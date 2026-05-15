@@ -4,10 +4,11 @@ import remarkGfm from 'remark-gfm'
 import { Check, ChevronDown, ChevronRight, Download, Send, Sparkles, Square, Terminal, XCircle } from 'lucide-react'
 
 import { Button } from '#/components/ui/button'
+import { OverrideSecretsForm } from '#/components/override-secrets-tab'
 import { Textarea } from '#/components/ui/textarea'
 import type { Part, UIMessage } from '#/lib/use-experiment-chat'
 import { cn } from '#/lib/utils'
-import type { ExperimentDraft } from '#/lib/types'
+import type { ExperimentDraft, JsonSchema, OverrideSecretsFormConfig } from '#/lib/types'
 
 export function ChatPanel({
   messages,
@@ -16,6 +17,8 @@ export function ChatPanel({
   pending,
   exportFilename,
   exportContext,
+  experimentId,
+  onSecretFormSaved,
   placeholder = 'Reply…',
 }: {
   messages: UIMessage[]
@@ -32,6 +35,8 @@ export function ChatPanel({
     ref?: string
     draft?: ExperimentDraft
   }
+  experimentId?: string
+  onSecretFormSaved?: (path: string) => void
   placeholder?: string
 }) {
   const [draft, setDraft] = useState('')
@@ -93,7 +98,12 @@ export function ChatPanel({
             </div>
           )}
           {messages.map((m) => (
-            <Message key={m.id} message={m} />
+            <Message
+              key={m.id}
+              message={m}
+              experimentId={experimentId}
+              onSecretFormSaved={onSecretFormSaved}
+            />
           ))}
           {pending && (
             <div className="text-muted-foreground flex items-center gap-2 text-xs">
@@ -145,7 +155,15 @@ export function ChatPanel({
   )
 }
 
-function Message({ message }: { message: UIMessage }) {
+function Message({
+  message,
+  experimentId,
+  onSecretFormSaved,
+}: {
+  message: UIMessage
+  experimentId?: string
+  onSecretFormSaved?: (path: string) => void
+}) {
   const isUser = message.role === 'user'
 
   if (isUser) {
@@ -168,18 +186,37 @@ function Message({ message }: { message: UIMessage }) {
         </div>
       )}
       {message.parts.map((p, i) => (
-        <PartView key={i} part={p} />
+        <PartView
+          key={i}
+          part={p}
+          experimentId={experimentId}
+          onSecretFormSaved={onSecretFormSaved}
+        />
       ))}
     </div>
   )
 }
 
-function PartView({ part }: { part: Part }) {
+function PartView({
+  part,
+  experimentId,
+  onSecretFormSaved,
+}: {
+  part: Part
+  experimentId?: string
+  onSecretFormSaved?: (path: string) => void
+}) {
   if (part.kind === 'text') {
     if (!part.text) return null
     return <MarkdownText text={part.text} />
   }
-  return <ToolCallView part={part} />
+  return (
+    <ToolCallView
+      part={part}
+      experimentId={experimentId}
+      onSecretFormSaved={onSecretFormSaved}
+    />
+  )
 }
 
 function MarkdownText({ text }: { text: string }) {
@@ -234,8 +271,30 @@ function MarkdownText({ text }: { text: string }) {
   )
 }
 
-function ToolCallView({ part }: { part: Extract<Part, { kind: 'tool' }> }) {
+function ToolCallView({
+  part,
+  experimentId,
+  onSecretFormSaved,
+}: {
+  part: Extract<Part, { kind: 'tool' }>
+  experimentId?: string
+  onSecretFormSaved?: (path: string) => void
+}) {
   const [open, setOpen] = useState(false)
+  const secretsConfig = secretFormConfigFromTool(part)
+  if (secretsConfig && experimentId) {
+    return (
+      <div className="min-w-0 max-w-full rounded-md border p-3">
+        <OverrideSecretsForm
+          experimentId={experimentId}
+          config={secretsConfig}
+          onSaved={onSecretFormSaved}
+          className="max-h-[70vh]"
+        />
+      </div>
+    )
+  }
+
   const Icon =
     part.state === 'output-error'
       ? XCircle
@@ -294,6 +353,48 @@ function ToolCallView({ part }: { part: Extract<Part, { kind: 'tool' }> }) {
       )}
     </div>
   )
+}
+
+function secretFormConfigFromTool(
+  part: Extract<Part, { kind: 'tool' }>,
+): OverrideSecretsFormConfig | null {
+  if (
+    part.toolName !== 'render_secret_form' &&
+    part.toolName !== 'render_override_secrets_form'
+  ) {
+    return null
+  }
+  const source = objectLike(part.output) ?? objectLike(part.input)
+  if (!source) return null
+  const providerId = stringValue(source.provider_id) ?? stringValue(source.providerId)
+  const schema =
+    objectLike(source.json_schema) ??
+    objectLike(source.jsonSchema) ??
+    objectLike(source.schema)
+  if (!providerId || !schema) return null
+  const file = stringValue(source.file) ?? 'override_test_secrets.yaml'
+  if (
+    file !== 'override_test_secrets.yaml' &&
+    file !== 'override_secrets.yaml' &&
+    file !== 'test_secrets.yaml'
+  ) {
+    return null
+  }
+  return {
+    providerId,
+    file,
+    schema: schema as JsonSchema,
+  }
+}
+
+function objectLike(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
 function stringifySafe(v: unknown): string {

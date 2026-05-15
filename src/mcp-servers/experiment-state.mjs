@@ -139,6 +139,36 @@ const server = new McpServer(
   { capabilities: { tools: {} } },
 )
 
+async function renderOverrideSecretsForm({ provider_id, json_schema, file }) {
+  const draft = await loadDraft()
+  draft.overrideSecretsForm = {
+    providerId: provider_id,
+    file,
+    schema: json_schema,
+  }
+  if (json_schema?.properties && typeof json_schema.properties === 'object') {
+    const required = Array.isArray(json_schema.required)
+      ? new Set(json_schema.required)
+      : new Set()
+    draft.requiredSecrets = Object.entries(json_schema.properties).map(
+      ([name, schema]) => ({
+        name,
+        description:
+          schema && typeof schema === 'object' && 'description' in schema
+            ? String(schema.description ?? name)
+            : name,
+        required: required.has(name),
+      }),
+    )
+  }
+  await saveDraft(draft)
+  return ok(`Override secrets form rendered.`, {
+    provider_id,
+    file,
+    json_schema,
+  })
+}
+
 // ---------- Title ----------
 
 server.registerTool(
@@ -206,6 +236,27 @@ server.registerTool(
 )
 
 server.registerTool(
+  'render_secret_form',
+  {
+    title: 'Render override secrets form',
+    description:
+      'Render an inline chat form and Secrets tab form from a JSON schema. The save button writes the selected override secrets YAML file and resumes the agent.',
+    inputSchema: {
+      provider_id: z.string().min(1),
+      json_schema: z.record(z.string(), z.unknown()),
+      file: z
+        .enum([
+          'override_test_secrets.yaml',
+          'override_secrets.yaml',
+          'test_secrets.yaml',
+        ])
+        .default('override_test_secrets.yaml'),
+    },
+  },
+  renderOverrideSecretsForm,
+)
+
+server.registerTool(
   'render_override_secrets_form',
   {
     title: 'Render override secrets form',
@@ -223,35 +274,7 @@ server.registerTool(
         .default('override_test_secrets.yaml'),
     },
   },
-  async ({ provider_id, json_schema, file }) => {
-    const draft = await loadDraft()
-    draft.overrideSecretsForm = {
-      providerId: provider_id,
-      file,
-      schema: json_schema,
-    }
-    if (json_schema?.properties && typeof json_schema.properties === 'object') {
-      const required = Array.isArray(json_schema.required)
-        ? new Set(json_schema.required)
-        : new Set()
-      draft.requiredSecrets = Object.entries(json_schema.properties).map(
-        ([name, schema]) => ({
-          name,
-          description:
-            schema && typeof schema === 'object' && 'description' in schema
-              ? String(schema.description ?? name)
-              : name,
-          required: required.has(name),
-        }),
-      )
-    }
-    await saveDraft(draft)
-    return ok(`Override secrets form rendered.`, {
-      provider_id,
-      file,
-      json_schema,
-    })
-  },
+  renderOverrideSecretsForm,
 )
 
 server.registerTool(

@@ -40,7 +40,7 @@ export function buildHarnessPhasePrompt(
 ): string {
   if (harness.id === 'factory-cli-provider') {
     const provider = draft.providerHarness
-    return `HARNESS PHASE START
+    return `START PROVIDER IMPLEMENTATION
 
 Harness type: ${harness.name}
 Harness brief: ${harness.harnessPhaseBrief}
@@ -278,7 +278,7 @@ State persistence:
     discovery, planning, testing, or implementation. Provider sidebar phases
     and dashboard metadata are persisted only through
     update_provider_discovery, update_provider_plan, update_provider_testing,
-    render_override_secrets_form, and update_provider_implementation. Use
+    render_secret_form, and update_provider_implementation. Use
     set_required_secrets only if a separate legacy secrets declaration is
     needed before update_provider_testing.
 
@@ -303,11 +303,11 @@ Factory CLI provider sidebar flow:
   3. Testing: after plan confirmation, discuss required credentials and how the
      user obtains them from the docs. Define e2e test specs and the override
      secrets JSON schema, then call update_provider_testing and
-     render_override_secrets_form with that JSON schema. The UI will render the
-     Secrets tab from this schema, save blank/hidden values to the selected
-     override secrets YAML file, and trigger the agent to continue after save.
-     The agent may call render_override_secrets_form again whenever the schema
-     needs to change.
+     render_secret_form with that JSON schema. The UI will render the form
+     inline in chat and in the Secrets tab from this schema, save blank/hidden
+     values to the selected override secrets YAML file, and trigger the agent
+     to continue after save. The agent may call render_secret_form again
+     whenever the schema needs to change.
      For providers that use OAuth, OIDC, device auth, service accounts, or
      related delegated auth flows, prefer persistent test credentials in
      secrets.yaml or override_test_secrets.yaml: client_id, client_secret,
@@ -357,7 +357,10 @@ Style:
   • Challenge unclear provider/account/workspace/tool language before building.
 
 Harness implementation phase:
-  • A message beginning HARNESS PHASE START means start editing files.
+  • The Start provider implementation button sends the implementation-start
+    prompt. The user should not have to type a magic phrase.
+  • A message beginning START PROVIDER IMPLEMENTATION or HARNESS PHASE START
+    means start editing files.
   • For generic experiments, build a runnable harness that produces
     artifacts/metrics and calls experiment_state setters for evaluators.
   • For Factory CLI providers, implement the provider/e2e plan directly in the
