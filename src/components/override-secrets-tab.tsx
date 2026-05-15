@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { KeyRound, Loader2 } from 'lucide-react'
+import { KeyRound, Loader2, ShieldCheck } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -17,7 +17,10 @@ import type {
   OverrideSecretsFormConfig,
   RequiredSecret,
 } from '#/lib/types'
-import { saveProviderSecretsFn } from '#/server/api/provider-secrets'
+import {
+  promoteOverrideSecretsFn,
+  saveProviderSecretsFn,
+} from '#/server/api/provider-secrets'
 
 type SecretValue = string | number | boolean
 
@@ -76,8 +79,10 @@ export function OverrideSecretsForm({
   const fields = useMemo(() => schemaFields(config?.schema), [config?.schema])
   const [values, setValues] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [promoting, setPromoting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedPath, setSavedPath] = useState<string | null>(null)
+  const [promotedPath, setPromotedPath] = useState<string | null>(null)
 
   const schema = normalizeSchema(config.schema)
   const required = new Set(schema.required ?? [])
@@ -88,6 +93,7 @@ export function OverrideSecretsForm({
   const onSave = async () => {
     setError(null)
     setSavedPath(null)
+    setPromotedPath(null)
     setSaving(true)
     try {
       const payload = Object.fromEntries(
@@ -110,6 +116,26 @@ export function OverrideSecretsForm({
       setError((e as Error).message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const onPromote = async () => {
+    setError(null)
+    setSavedPath(null)
+    setPromotedPath(null)
+    setPromoting(true)
+    try {
+      const result = await promoteOverrideSecretsFn({
+        data: {
+          experimentId,
+          providerId: config.providerId,
+        },
+      })
+      setPromotedPath(result.encryptedSecretsPath)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setPromoting(false)
     }
   }
 
@@ -167,10 +193,31 @@ export function OverrideSecretsForm({
               </AlertDescription>
             </Alert>
           )}
+          {promotedPath && (
+            <Alert>
+              <AlertTitle>Secrets encrypted</AlertTitle>
+              <AlertDescription className="text-xs">
+                Wrote {promotedPath}. The override file was moved to
+                test_secrets.yaml before encryption.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       </div>
       <div className="border-t bg-background/80 px-3 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl justify-end">
+        <div className="mx-auto flex max-w-2xl flex-wrap justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={onPromote}
+            disabled={disabled || saving || promoting}
+          >
+            {promoting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="size-4" />
+            )}
+            Move to SOPS file
+          </Button>
           <Button onClick={onSave} disabled={disabled || saving || missing}>
             {saving && <Loader2 className="size-4 animate-spin" />}
             Save override secrets
