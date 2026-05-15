@@ -74,7 +74,7 @@ install-uv:
 .PHONY: setup-ccc
 setup-ccc: install-uv
 	@PATH="$(HOME)/.local/bin:$$PATH"; \
-	uv tool install --upgrade 'cocoindex-code[full]'
+	uv tool install --upgrade 'cocoindex-code[full]' --force
 	@PATH="$(HOME)/.local/bin:$$PATH"; \
 	echo "Installed: $$(ccc --help >/dev/null 2>&1 && echo OK || echo MISSING) at $(CCC_BIN)"
 
