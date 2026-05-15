@@ -168,6 +168,12 @@ State persistence:
     set_subgoal_evaluator, add_output_artifact, remove_output_artifact,
     add_metric, upsert_info_block, set_required_secrets, set_harness.
     There is no save button.
+  • For Factory CLI provider harnesses, do not use generic experiment phase
+    transitions like set_phase("design"), set_phase("harness"), or
+    set_phase("runs") during discovery, planning, testing, or implementation.
+    The provider sidebar phases are persisted only through the provider tools
+    named update_provider_discovery, update_provider_plan,
+    update_provider_testing, and update_provider_implementation.
 
 Factory CLI provider sidebar flow:
   1. Discovery starts from the user's message about the provider/tools. Have a
@@ -178,6 +184,11 @@ Factory CLI provider sidebar flow:
      update_provider_discovery. That tool updates the sidebar and writes
      providers/<provider>/generator-metadata.yaml under discovery with
      references, discovery_notes, provider_goal, and tool_goals.
+     Before moving past discovery, also ask for and persist the user's explicit
+     e2e safety decisions: target account/workspace/project, destructive
+     behavior, cleanup expectations, spend/rate-limit constraints, and whether
+     real external credentials/state are available. If any answer is unknown,
+     keep asking instead of advancing.
   2. Plan: analyze the discovery docs/goals and formulate provider pseudo-code
      plus a concrete implementation description. Call update_provider_plan only
      after user confirmation. Then do the same for each tool, including input
@@ -202,6 +213,9 @@ Factory CLI provider rules:
   • Credentials are not stored. Auth details are provider parameters.
   • Do not run destructive real-provider e2e tests without explicit user
     confirmation of account/workspace, cleanup, spend, and rate limits.
+  • Do not advance Factory CLI provider work into plan/testing/implementation
+    until the required e2e safety decisions have been discussed with the user
+    and persisted through the provider-specific update tools.
   • E2E tests must exercise real CLI/provider behavior. Never propose
     mock-backed e2e tests for Factory CLI provider work.
   • Required checks are targeted provider/tool tests, make test-unit,
@@ -226,18 +240,33 @@ Run execution phase:
 }
 
 export function buildFirstUserPrompt(harness: HarnessDefinition) {
-  const examples =
-    harness.id === 'factory-cli-provider'
-      ? [
-          'Add Google Workspace as a CLI Factory provider with Gmail send/check and Calendar create/check tools, with full e2e tests.',
-          'Update the Google Workspace provider to support Gmail attachments while preserving existing send-email behavior.',
-          'Add pagination support to an existing read tool and cover it with full e2e tests.',
-        ]
-      : [
-          'Mount our FUSE client in a VM and get `npm i -g next` under 9s while keeping unit tests green.',
-          'Cache hot inbox queries so /inbox p95 drops below 80 ms without increasing memory > 1 GB.',
-          'Cut nightly Postgres autovacuum runtime by 50% without growing index size by more than 10%.',
-        ]
+  const isFactoryProvider = harness.id === 'factory-cli-provider'
+  const examples = isFactoryProvider
+    ? [
+        'Add Google Workspace as a CLI Factory provider with Gmail send/check and Calendar create/check tools, with full e2e tests.',
+        'Update the Google Workspace provider to support Gmail attachments while preserving existing send-email behavior.',
+        'Add pagination support to an existing read tool and cover it with full e2e tests.',
+      ]
+    : [
+        'Mount our FUSE client in a VM and get `npm i -g next` under 9s while keeping unit tests green.',
+        'Cache hot inbox queries so /inbox p95 drops below 80 ms without increasing memory > 1 GB.',
+        'Cut nightly Postgres autovacuum runtime by 50% without growing index size by more than 10%.',
+      ]
+  const factorySafetyAsk = isFactoryProvider
+    ? `
+
+For Factory CLI provider work, also ask the user to confirm the real e2e
+safety details before advancing or calling any phase-like tool:
+  - target account/workspace/project for e2e tests
+  - whether any requested operation is destructive
+  - cleanup expectations
+  - spend and rate-limit constraints
+  - whether the required real credentials/external state are available
+
+Do not call experiment_state.set_phase("design") for Factory CLI provider
+harnesses. Persist confirmed discovery and safety details with
+update_provider_discovery first.`
+    : ''
 
   return `Begin by:
 
@@ -252,6 +281,7 @@ export function buildFirstUserPrompt(harness: HarnessDefinition) {
 4. Asking the user: "Is that summary correct, and what provider and tools do
    you want this harness to implement?" Offer these examples:
 ${examples.map((example) => `       — ${example}`).join('\n')}
+${factorySafetyAsk}
 
 Do NOT call experiment_state.set_goal yet — wait for the user to confirm or
 refine.`
